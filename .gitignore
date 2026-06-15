@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+# package-lock.json IS committed here: the Deploy workflow runs `npm ci`, which
+# requires a lockfile. (This differs from the monorepo template, which omits it.)
+
+# Build output
+dist/
+
+# Cloudflare / Wrangler
+.wrangler/
+worker/worker-configuration.d.ts
+# Local wrangler secrets — never commit (this is a public repo).
+.dev.vars
+.dev.vars.*
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Logs and env
+*.log
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/

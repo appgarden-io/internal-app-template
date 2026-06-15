@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Local-dev fallback name only. The Deploy workflow (.github/workflows/deploy.yml)
+  // overrides this with the app Slug via `wrangler deploy --name <repo-name>`, so the
+  // deployed Worker is named after the repo — never "appgarden-app". Wrangler requires
+  // a name here, and `npm run dev` uses it locally.
+  "name": "appgarden-app",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-06-12",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // A single Worker serves both the built Vite SPA assets and the Hono API.
+  // The @cloudflare/vite-plugin wires `assets.directory` to the client build
+  // output automatically; only the routing behaviour is configured here.
+  "assets": {
+    "binding": "ASSETS",
+    // Unmatched routes fall back to index.html so client-side routing works.
+    "not_found_handling": "single-page-application",
+    // Requests under /api/* hit the Worker first instead of static assets.
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Generic SQLite-backed storage Durable Object (demonstrated with notes).
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "STORAGE",
+        "class_name": "StorageDurableObject"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["StorageDurableObject"]
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}

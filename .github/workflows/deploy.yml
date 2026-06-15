@@ -1,0 +1,36 @@
+name: Deploy
+
+# Pushing to `main` deploys this app. The lint/typecheck/build steps gate the
+# deploy: if any fails, `wrangler deploy` never runs. This is the ONLY blessed
+# way to deploy — never run `wrangler deploy` by hand (it would land the Worker
+# outside the dispatch namespace and bypass Cloudflare Access).
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Deploy to the dispatch namespace
+        # --name is the repo name (the app Slug); the dispatch namespace and the
+        # Cloudflare credentials come from the Client GitHub org's Actions
+        # secrets/vars, set once by the Operator at provisioning.
+        run: npx wrangler deploy --name "${{ github.event.repository.name }}" --dispatch-namespace "${{ vars.APPGARDEN_NAMESPACE }}"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Summarise the live URL
+        run: echo "### Live: https://${{ github.event.repository.name }}.${{ vars.APPGARDEN_APPS_DOMAIN }}" >> "$GITHUB_STEP_SUMMARY"
