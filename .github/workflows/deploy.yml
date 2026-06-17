@@ -14,6 +14,10 @@ concurrency:
 
 jobs:
   deploy:
+    # The template repo itself has no Cloudflare credentials/namespace, so its own
+    # pushes would always fail the deploy step. Skip on the template; repos created
+    # from it (where the Operator sets the org's Actions secrets/vars) deploy normally.
+    if: github.repository != 'appgarden-io/internal-app-template'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
