@@ -16,6 +16,8 @@ monorepo and pins its own dependency versions.
 | Styling    | Tailwind CSS v4 (`@tailwindcss/vite`) + shadcn/ui   |
 | API        | Hono, running inside the Worker, mounted at `/api`  |
 | Storage    | SQLite Durable Object (`StorageDurableObject`)      |
+| Files      | R2 object storage (`BUCKET`), shared per account    |
+| AI         | Workers AI via AI Gateway (`AI` binding)            |
 | Data access| Drizzle ORM (`durable-sqlite`) + committed migrations |
 | Lint/Format| Biome                                               |
 
@@ -25,6 +27,8 @@ monorepo and pins its own dependency versions.
 Request
   /api/example ──► Worker (Hono) ──► TanStack Query via Hono hc
   /api/notes   ──► Worker (Hono) ──► STORAGE Durable Object (SQLite)
+  /api/ai/*    ──► Worker (Hono) ──► AI binding ──► AI Gateway (default)
+  /api/files/* ──► Worker (Hono) ──► BUCKET (R2, shared; keyed by <slug>/)
   /*      ──► ASSETS binding ──► dist/client (index.html SPA fallback)
 ```
 
@@ -102,6 +106,39 @@ and the `/api/notes` CRUD). `src/lib/api.ts` creates the matching Hono `hc` clie
 the only place the SPA talks to the API; `src/routes/index.tsx` calls it with TanStack Query.
 Request, response, and path-param types flow from the route definitions to the client with no
 casts — that is the intended typed client/server API pattern.
+
+## AI and R2 storage
+
+Two more Cloudflare bindings ship wired-in, behind the same seam pattern as storage
+(`src/lib/api-routes.ts` stays Cloudflare-free; the Worker injects the real adapter):
+
+- **AI** (`env.AI`) — Workers AI, routed through **AI Gateway**. The adapter
+  (`worker/ai-runner.ts`) calls `ai.run(model, inputs, { gateway: { id: "default" } })`; the
+  `default` gateway auto-creates on first use, giving caching, rate-limiting, and analytics with
+  no setup. Example route: `POST /api/ai/generate`.
+- **Files** (`env.BUCKET`) — R2 object storage. Example routes: `GET`/`POST /api/files` and
+  `GET`/`DELETE /api/files/:key`. Client helpers live in `src/lib/api.ts` (`generateText`,
+  `listFiles`, `uploadFile`, `downloadFile`, `deleteFile`).
+
+### One shared bucket, isolated by app
+
+Every App in a Client's Cloudflare account shares **one** R2 bucket, `apps-storage`, created once
+when the account is provisioned — it is **not** created by the App deploy. The Worker prefixes
+every object key with this App's slug (`<APP_SLUG>/…`, set from the repo name at deploy time), so
+Apps never collide and each sees only its own files. `worker/file-store.ts` adds and strips the
+prefix; routes and the SPA work in a flat key space. If an App ever needs a dedicated bucket,
+change `bucket_name` in `wrangler.jsonc` and have that bucket provisioned.
+
+### Local development
+
+`npm run dev` runs **fully offline** — no Cloudflare login. R2 and the Durable Object are
+simulated locally, so the file routes work end-to-end with no account. **Workers AI has no local
+simulator**, so `vite.config.ts` sets `remoteBindings: false`: otherwise the dev server would open
+an authenticated session to your Cloudflare account just to boot, and AppGarden Builders have no
+local credentials. The AI binding is still present, but calling it in local dev throws —
+`POST /api/ai/generate` works once deployed. To exercise AI locally, flip `remoteBindings` to
+`true` in `vite.config.ts` and `wrangler login` (Workers AI then runs against — and bills — your
+real account, even in dev).
 
 ## Storage: Drizzle ORM + SQLite Durable Object
 

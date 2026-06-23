@@ -36,6 +36,35 @@
     }
   ],
 
+  // Workers AI. Zero provisioning — `env.AI` is always available. App code routes
+  // through AI Gateway at call time (`ai.run(model, inputs, { gateway: { id: "default" } })`);
+  // the default gateway auto-creates on first request. One AI binding per Worker.
+  "ai": {
+    "binding": "AI"
+  },
+
+  // R2 object storage. All Apps in a Client's Cloudflare account SHARE this one
+  // bucket; the Worker namespaces every object under `<APP_SLUG>/` so Apps never
+  // collide (see worker/file-store.ts). The bucket is created once per account
+  // during Client provisioning (appgarden-deploy runbook, Phase C) — never by the
+  // App deploy. The name is a per-account singleton, like the `apps-production`
+  // dispatch namespace. `npm run dev` simulates R2 locally, so no real bucket is
+  // needed for local development.
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "apps-storage"
+    }
+  ],
+
+  // APP_SLUG is the R2 key prefix that isolates this App inside the shared bucket.
+  // This local-dev default is overridden per App at deploy time by the Deploy
+  // workflow (`wrangler deploy --var APP_SLUG:<repo-name>`), mirroring how the
+  // Worker script name is set from the repo name.
+  "vars": {
+    "APP_SLUG": "appgarden-app"
+  },
+
   "observability": {
     "enabled": true
   }
