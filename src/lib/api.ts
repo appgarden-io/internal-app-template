@@ -11,6 +11,18 @@ export type { Note, StoredFile };
 // response, and path param below is checked end-to-end — no `fetch`, no casts.
 export const apiClient = hc<ApiRoutes>("/api");
 
+// --- App config ---
+
+export const fetchAppName = async (): Promise<string> => {
+  const res = await apiClient.config.$get();
+  if (!res.ok) {
+    throw new Error(`Failed to load app config (${res.status})`);
+  }
+
+  const { appName } = await res.json();
+  return appName;
+};
+
 export const fetchNotes = async (): Promise<Note[]> => {
   const res = await apiClient.notes.$get();
   if (!res.ok) {

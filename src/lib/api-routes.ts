@@ -64,7 +64,14 @@ export interface FileStore {
 
 /** Hono environment for the routes: the seams the Worker injects per request. */
 export type ApiEnv = {
-  Variables: { storage: NotesStorage; ai: AiRunner; files: FileStore };
+  Variables: {
+    storage: NotesStorage;
+    ai: AiRunner;
+    files: FileStore;
+    // This App's human-readable name (derived from its slug). Injected as a
+    // plain string so the routes stay Worker-free — see `worker/index.ts`.
+    appName: string;
+  };
 };
 
 const createNoteSchema = z.object({ text: z.string().trim().min(1) });
@@ -80,6 +87,9 @@ export const apiRoutes = new Hono<ApiEnv>()
     return c.json(response);
   })
   .get("/health", (c) => c.json({ status: "ok" }))
+  // App config for the SPA. Currently just the human-readable name (used for
+  // the browser tab title); extend with other boot-time, server-known values.
+  .get("/config", (c) => c.json({ appName: c.var.appName }))
   .get("/notes", async (c) => {
     const notes = await c.var.storage.listNotes();
     return c.json({ notes });

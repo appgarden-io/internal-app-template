@@ -4,6 +4,7 @@ import {
   apiRoutes,
   type NotesStorage,
 } from "../src/lib/api-routes";
+import { slugToAppName } from "../src/lib/app-name";
 import { createAiRunner } from "./ai-runner";
 import { createFileStore } from "./file-store";
 import { StorageDurableObject } from "./storage-do";
@@ -40,6 +41,7 @@ const api = new Hono<{ Bindings: Env } & ApiEnv>()
     c.set("storage", getStorage(c.env));
     c.set("ai", createAiRunner(c.env.AI));
     c.set("files", createFileStore(c.env.BUCKET, c.env.APP_SLUG));
+    c.set("appName", slugToAppName(c.env.APP_SLUG));
     await next();
   })
   .route("/", apiRoutes);
