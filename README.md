@@ -120,14 +120,12 @@ Two more Cloudflare bindings ship wired-in, behind the same seam pattern as stor
   `GET`/`DELETE /api/files/:key`. Client helpers live in `src/lib/api.ts` (`generateText`,
   `listFiles`, `uploadFile`, `downloadFile`, `deleteFile`).
 
-### One shared bucket, isolated by app
+### A bucket per app
 
-Every App in a Client's Cloudflare account shares **one** R2 bucket, `apps-storage`, created once
-when the account is provisioned — it is **not** created by the App deploy. The Worker prefixes
-every object key with this App's slug (`<APP_SLUG>/…`, set from the repo name at deploy time), so
-Apps never collide and each sees only its own files. `worker/file-store.ts` adds and strips the
-prefix; routes and the SPA work in a flat key space. If an App ever needs a dedicated bucket,
-change `bucket_name` in `wrangler.jsonc` and have that bucket provisioned.
+Each App gets its **own** R2 bucket, named after the repo (the Slug), created by the Deploy
+workflow on the first push — so the bucket itself is the isolation boundary and keys live in a
+flat space (no prefixing). `worker/file-store.ts` talks to `env.BUCKET` directly. `npm run dev`
+simulates R2 locally, so no real bucket is needed for local development.
 
 ### Local development
 
