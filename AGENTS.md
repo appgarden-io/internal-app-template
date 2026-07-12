@@ -57,7 +57,9 @@ wrong place. There is no `npm run deploy`.
   fade + rise on mount. It is pure CSS and auto-disables under reduced-motion. Use `asChild`
   to animate the element directly (no extra `<div>`), `direction` to set the slide axis, and
   `delay` (ms) to stagger siblings. See the home page (`src/routes/index.tsx`) for the pattern.
-- **`wrangler.jsonc` configures LOCAL DEV only — production bindings are fixed by the platform.**
+- **Bindings in `wrangler.jsonc` configure LOCAL DEV only — production bindings are fixed by the
+  platform.** (The file's other fields — `main`, compatibility settings, `migrations` — DO feed the
+  deploy via the build output.)
   At deploy the AppGarden gateway ignores this file's bindings and gives the app exactly:
   `BUCKET` (this app's own R2 bucket), `STORAGE` (the `StorageDurableObject`), `AI`, `APP_SLUG`
   (the repo name), and `ASSETS` (the built SPA). Three consequences:
