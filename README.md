@@ -50,8 +50,8 @@ identity you can keep or change:
 | Worker name   | `appgarden-app` | `wrangler.jsonc` (`name`)            |
 | Display title | `AppGarden App` | `index.html`, `src/routes/index.tsx` |
 
-The **deployed** script name is the app slug — this repo's name — supplied by the
-Deploy workflow as `wrangler deploy --name <repo-name>`, so the slug is never
+The **deployed** script name is the app slug — this repo's name — stamped by the
+AppGarden deploy gateway from the App's registration, so the slug is never
 written into any file and the raw template stays buildable. The display title is
 ordinary app text: edit it like any other code.
 
@@ -83,21 +83,18 @@ repo's **name is the app slug** — the Worker script name and the subdomain lab
 edited at creation time; the slug lives only in the repo name.
 
 **Deployed by pushing to `main`.** Every push to `main` runs `.github/workflows/deploy.yml`, which
-lints, typechecks, builds, then runs:
+lints, typechecks, builds, then mints a short-lived GitHub OIDC token and POSTs the built bundle to
+the AppGarden deploy gateway (`scripts/deploy-bundle.mjs`). The gateway verifies the token, checks
+this repo is a registered App, and uploads the Worker into this Client's dispatch namespace.
 
-```bash
-wrangler deploy --name <repo-name> --dispatch-namespace <namespace>
-```
+**No app slug, dispatch namespace, or Cloudflare credential exists here.** `wrangler.jsonc` is a
+normal Worker config used for local dev only; the gateway resolves the script name (the repo
+name), the namespace, and every binding server-side — the same template deploys into any Client's
+Workers-for-Platforms namespace, and there is no secret in the org to leak or rotate.
 
-**No app slug or dispatch namespace is hardcoded here.** `wrangler.jsonc` is a normal Worker
-config; the workflow supplies the script name (the repo name) and the namespace, so the same
-template deploys into any client's Workers-for-Platforms namespace.
-
-> **Operator setup (once per GitHub org).** The deploy reads its Cloudflare config from the org's
-> Actions secrets/vars — never committed, never on a Builder's machine. Set these before the first
-> push or the deploy fails:
-> - secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
-> - vars: `APPGARDEN_NAMESPACE` (dispatch namespace), `APPGARDEN_APPS_DOMAIN` (for the live-URL summary)
+> **Operator setup (once per GitHub org).** Only one Actions var is read:
+> `APPGARDEN_APPS_DOMAIN` (for the live-URL summary line). Deploy authentication is the
+> workflow-minted OIDC token — no Cloudflare secrets in the org.
 
 ## API examples
 
@@ -122,8 +119,8 @@ Two more Cloudflare bindings ship wired-in, behind the same seam pattern as stor
 
 ### A bucket per app
 
-Each App gets its **own** R2 bucket, named after the repo (the Slug), created by the Deploy
-workflow on the first push — so the bucket itself is the isolation boundary and keys live in a
+Each App gets its **own** R2 bucket, named from the Slug, created by the deploy gateway on the
+first push — so the bucket itself is the isolation boundary and keys live in a
 flat space (no prefixing). `worker/file-store.ts` talks to `env.BUCKET` directly. `npm run dev`
 simulates R2 locally, so no real bucket is needed for local development.
 

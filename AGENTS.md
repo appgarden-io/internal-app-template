@@ -22,7 +22,7 @@ git add -A
 git commit -m "describe your change"
 git push
 ```
-A GitHub Action then lints, typechecks, builds, and deploys the app. Watch it under the repo's
+A GitHub Action then lints, typechecks, builds, and deploys the app through the AppGarden deploy gateway (no Cloudflare credentials live in this repo or org). Watch it under the repo's
 **Actions** tab; when it finishes, the run summary shows your live URL.
 
 **Never run `wrangler deploy` by hand.** Pushing to `main` is the only way to deploy — a manual

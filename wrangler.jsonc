@@ -1,9 +1,8 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  // Local-dev fallback name only. The Deploy workflow (.github/workflows/deploy.yml)
-  // overrides this with the app Slug via `wrangler deploy --name <repo-name>`, so the
-  // deployed Worker is named after the repo — never "appgarden-app". Wrangler requires
-  // a name here, and `npm run dev` uses it locally.
+  // Local-dev fallback name only. The deploy gateway names the deployed Worker
+  // after this App's registered Slug (the repo name) — never "appgarden-app".
+  // Wrangler requires a name here, and `npm run dev` uses it locally.
   "name": "appgarden-app",
   "main": "./worker/index.ts",
   "compatibility_date": "2026-06-12",
@@ -44,12 +43,10 @@
   },
 
   // R2 object storage — one bucket PER App (not shared). `bucket_name` here is a
-  // local-dev placeholder; the Deploy workflow points the binding at this App's
-  // own bucket (named after the repo = the Slug) and creates it, mirroring how
-  // `name` and `APP_SLUG` are set from the repo at deploy. wrangler has no
-  // bucket_name override flag, so the workflow rewrites this value BEFORE the
-  // build bakes wrangler.jsonc into dist/. `npm run dev` simulates R2 locally,
-  // so no real bucket is needed for local development.
+  // local-dev placeholder: at deploy the gateway creates this App's own bucket
+  // (named from its Slug) and stamps the binding server-side — nothing in this
+  // file reaches the deployed Worker's bindings. `npm run dev` simulates R2
+  // locally, so no real bucket is needed for local development.
   "r2_buckets": [
     {
       "binding": "BUCKET",
@@ -58,9 +55,8 @@
   ],
 
   // APP_SLUG is this App's slug (its repo name), used for the App's display name
-  // (see src/lib/app-name.ts). This local-dev default is overridden per App at
-  // deploy time by the Deploy workflow (`wrangler deploy --var APP_SLUG:<repo>`),
-  // mirroring how the Worker script name is set from the repo name.
+  // (see src/lib/app-name.ts). This local-dev default is replaced at deploy by
+  // the gateway, which stamps the registered Slug server-side.
   "vars": {
     "APP_SLUG": "appgarden-app"
   },
