@@ -1,9 +1,14 @@
 name: Deploy
 
-# Pushing to `main` deploys this app. The lint/typecheck/build steps gate the
-# deploy: if any fails, `wrangler deploy` never runs. This is the ONLY blessed
-# way to deploy — never run `wrangler deploy` by hand (it would land the Worker
-# outside the dispatch namespace and bypass Cloudflare Access).
+# Pushing to `main` deploys this app THROUGH THE APPGARDEN DEPLOY GATEWAY.
+# The lint/typecheck/build steps gate the deploy: if any fails, nothing ships.
+#
+# ZERO repository secrets: the only deploy credential is a short-lived GitHub
+# OIDC id-token this workflow mints per run. The gateway verifies it (repo
+# registration + ref == main) and holds every Cloudflare credential
+# server-side — there is no Cloudflare token in this org to leak or rotate.
+# The gateway also creates this app's R2 bucket and stamps all bindings, so
+# the deploy is exactly: build → mint token → POST the bundle.
 on:
   push:
     branches: [main]
@@ -12,11 +17,17 @@ concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  # Mint the OIDC id-token the gateway authenticates — the repo's zero-secret
+  # deploy credential.
+  id-token: write
+
 jobs:
   deploy:
-    # The template repo itself has no Cloudflare credentials/namespace, so its own
-    # pushes would always fail the deploy step. Skip on the template; repos created
-    # from it (where the Operator sets the org's Actions secrets/vars) deploy normally.
+    # The template repo itself is not a registered App (the gateway would deny
+    # it), so its own pushes skip the deploy. Repos created from it are
+    # registered at creation and deploy normally.
     if: github.repository != 'appgarden-io/internal-app-template'
     runs-on: ubuntu-latest
     steps:
@@ -28,16 +39,23 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
-      - name: Deploy to the dispatch namespace
-        # --name is the repo name (the app Slug); the dispatch namespace and the
-        # Cloudflare credentials come from the Client GitHub org's Actions
-        # secrets/vars, set once by the Operator at provisioning.
-        # --var APP_SLUG (also the repo name) is the R2 key prefix that isolates
-        # this app's objects inside the account's shared `apps-storage` bucket.
-        run: npx wrangler deploy --name "${{ github.event.repository.name }}" --dispatch-namespace "${{ vars.APPGARDEN_NAMESPACE }}" --var "APP_SLUG:${{ github.event.repository.name }}"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Minted straight from the runner's token endpoint (no third-party
+      # action), masked, and handed to the deploy script as env.
+      - name: Mint the deploy OIDC token
+        run: |
+          token="$(curl -sSf \
+            --connect-timeout 5 --max-time 15 \
+            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://deploy.appgarden.io" \
+            | jq -r '.value')"
+          if [ -z "$token" ] || [ "$token" = "null" ]; then
+            echo "Failed to mint the OIDC id-token." >&2
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "DEPLOY_OIDC_TOKEN=$token" >> "$GITHUB_ENV"
+      - name: Deploy through the AppGarden gateway
+        run: node scripts/deploy-bundle.mjs
       - name: Summarise the live URL
         run: |
           echo "### Live: https://${{ github.event.repository.name }}.${{ vars.APPGARDEN_APPS_DOMAIN }}" >> "$GITHUB_STEP_SUMMARY"

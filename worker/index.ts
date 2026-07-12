@@ -16,11 +16,11 @@ export interface Env {
   STORAGE: DurableObjectNamespace<StorageDurableObject>;
   // Workers AI — routed through AI Gateway in `worker/ai-runner.ts`.
   AI: Ai;
-  // R2 object storage, shared across the account's Apps; `worker/file-store.ts`
-  // namespaces keys by `APP_SLUG`.
+  // R2 object storage — this App's own bucket (one per App), created at deploy.
+  // Keys are flat; the bucket is the isolation boundary (see worker/file-store.ts).
   BUCKET: R2Bucket;
   // This App's slug (its repo name), set by the Deploy workflow via
-  // `--var APP_SLUG:<repo>`; the R2 key prefix that isolates this App's objects.
+  // `--var APP_SLUG:<repo>`; drives the App's display name (see slugToAppName).
   APP_SLUG: string;
 }
 
@@ -40,7 +40,7 @@ const api = new Hono<{ Bindings: Env } & ApiEnv>()
   .use("*", async (c, next) => {
     c.set("storage", getStorage(c.env));
     c.set("ai", createAiRunner(c.env.AI));
-    c.set("files", createFileStore(c.env.BUCKET, c.env.APP_SLUG));
+    c.set("files", createFileStore(c.env.BUCKET));
     c.set("appName", slugToAppName(c.env.APP_SLUG));
     await next();
   })

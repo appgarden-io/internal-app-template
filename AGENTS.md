@@ -22,7 +22,7 @@ git add -A
 git commit -m "describe your change"
 git push
 ```
-A GitHub Action then lints, typechecks, builds, and deploys the app. Watch it under the repo's
+A GitHub Action then lints, typechecks, builds, and deploys the app through the AppGarden deploy gateway (no Cloudflare credentials live in this repo or org). Watch it under the repo's
 **Actions** tab; when it finishes, the run summary shows your live URL.
 
 **Never run `wrangler deploy` by hand.** Pushing to `main` is the only way to deploy — a manual
@@ -46,10 +46,9 @@ wrong place. There is no `npm run deploy`.
   no local simulator, so `npm run dev` runs with `remoteBindings: false` (offline) and **AI calls
   throw in local dev** — they work once deployed. To test AI locally, flip `remoteBindings` to
   `true` in `vite.config.ts` and `wrangler login`; it then bills your real account even in dev.
-- **Files/R2**: use the `FileStore` seam (`c.var.files`), never `env.BUCKET` directly. All Apps in
-  the account share the `apps-storage` bucket; the adapter (`worker/file-store.ts`) namespaces keys
-  by `APP_SLUG`, so just use plain keys and never hard-code the prefix. R2 is simulated locally, so
-  file routes work offline.
+- **Files/R2**: use the `FileStore` seam (`c.var.files`), never `env.BUCKET` directly. Each App has
+  its own R2 bucket (named after the repo, created at deploy), so keys are flat — just use plain
+  keys, no prefixing. R2 is simulated locally, so file routes work offline.
 - **Database**: edit tables in `worker/schema.ts` (Drizzle ORM), then run `npm run db:generate`
   and commit the new files under `drizzle/`. **Never hand-edit `drizzle/`** — it is generated.
   Row types live in `worker/schema.ts` (e.g. `Note`); import them, don't redefine them.
