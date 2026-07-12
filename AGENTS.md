@@ -57,8 +57,18 @@ wrong place. There is no `npm run deploy`.
   fade + rise on mount. It is pure CSS and auto-disables under reduced-motion. Use `asChild`
   to animate the element directly (no extra `<div>`), `direction` to set the slide axis, and
   `delay` (ms) to stagger siblings. See the home page (`src/routes/index.tsx`) for the pattern.
-- **Don't edit `wrangler.jsonc` `name`** — the deployed name is the app slug (this repo's name),
-  set by the Deploy workflow via `wrangler --name <repo-name>` at deploy time.
+- **`wrangler.jsonc` configures LOCAL DEV only — production bindings are fixed by the platform.**
+  At deploy the AppGarden gateway ignores this file's bindings and gives the app exactly:
+  `BUCKET` (this app's own R2 bucket), `STORAGE` (the `StorageDurableObject`), `AI`, `APP_SLUG`
+  (the repo name), and `ASSETS` (the built SPA). Three consequences:
+  - **Adding a new binding here (KV, D1, queues, …) will work in `npm run dev` and silently NOT
+    exist once deployed** — the code will break in production only. If a feature needs a new kind
+    of resource, ask AppGarden first instead of building on it.
+  - **Never rename or remove `StorageDurableObject` or its export** in `worker/index.ts` — the
+    deploy fails (the platform binds that exact class).
+  - **Treat `migrations` in `wrangler.jsonc` as append-only history** — the platform deploys only
+    the steps the live app is missing; rewriting or deleting past entries breaks every future
+    deploy. (Don't edit `name` either — the deployed name is always this repo's name.)
 - Use the shadcn UI components and tailwind in all cases - unless there is a very good reason not to.
 - **Tables** use tanstack tables when creating tables
 - **Forms** use tanstack forms when creating forms
