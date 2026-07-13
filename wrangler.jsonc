@@ -1,5 +1,10 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
+  // Bindings declared in this file deploy as-is on push. Want to add one? See
+  // AGENTS.md § "Adding Cloudflare bindings" — Durable Objects and vars are
+  // self-serve; KV / D1 / Queues / extra R2 buckets need AppGarden to provision
+  // the resource first, so ask before adding them here.
+
   // Local-dev fallback name only. The Deploy workflow (.github/workflows/deploy.yml)
   // overrides this with the app Slug via `wrangler deploy --name <repo-name>`, so the
   // deployed Worker is named after the repo — never "appgarden-app". Wrangler requires

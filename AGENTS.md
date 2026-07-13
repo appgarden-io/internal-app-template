@@ -52,6 +52,21 @@ wrong place. There is no `npm run deploy`.
 - **Database**: edit tables in `worker/schema.ts` (Drizzle ORM), then run `npm run db:generate`
   and commit the new files under `drizzle/`. **Never hand-edit `drizzle/`** — it is generated.
   Row types live in `worker/schema.ts` (e.g. `Note`); import them, don't redefine them.
+- **Adding Cloudflare bindings**: `wrangler.jsonc` declares everything this Worker can
+  reach (its "bindings"), and the deploy pipeline ships it as-is — so you *can* add new
+  capabilities there. Two rules decide whether you may do it yourself:
+    - **Self-serve** — bindings that need nothing set up in the Cloudflare account:
+      another Durable Object (add the class in `worker/`, a `durable_objects` binding,
+      and a `migrations` entry) or a plain var. AI (`env.AI`) and file storage
+      (`env.BUCKET`) are already bound — don't add second ones.
+    - **Ask AppGarden first** — bindings that point at an account resource: KV, D1,
+      Queues, another R2 bucket. The resource doesn't exist yet, so the deploy will
+      fail. Send an expert question describing what you're building instead of pushing
+      to find out.
+  After editing `wrangler.jsonc`, run `npm run cf-typegen` to regenerate
+  `worker/worker-configuration.d.ts`, and reach the new binding through a small adapter
+  like `worker/ai-runner.ts` / `worker/file-store.ts` — routes never touch `env.*`
+  directly.
 - **Routes/UI**: file-based routes in `src/routes/`; shadcn/ui components are preinstalled.
   For entrance motion, wrap a section in `<Reveal>` (`@/components/ui/motion`) — a subtle
   fade + rise on mount. It is pure CSS and auto-disables under reduced-motion. Use `asChild`
