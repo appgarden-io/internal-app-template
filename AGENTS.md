@@ -86,9 +86,12 @@ Migrations run **inside the deployed app, against live data**: each Durable Obje
 pending files from `drizzle/` the next time it wakes up, before serving requests. There is no
 undo — a bad migration destroys real rows, or crashes the app on startup until a fix is deployed.
 
-- **Prefer additive changes.** New tables, and new columns that are optional or have a
-  `.default(...)`, are always safe. A `.notNull()` column added to an existing table **must**
-  have a `.default(...)`, or the migration fails on any object that already has rows.
+- **Prefer additive changes — but still read the SQL.** New tables and new *optional* or
+  `.default(...)` columns are the safest kind of change, not a guaranteed-safe one. A `.notNull()`
+  column added to an existing table **must** carry a `.default(...)`, or the migration fails on any
+  object that already has rows; and a unique constraint, a unique index over existing data, or a
+  non-constant default can still fail or make drizzle-kit rebuild the whole table. "Additive"
+  lowers the risk — it doesn't remove the next rule.
 - **Read the generated SQL before committing.** After `npm run db:generate`, open the new file
   under `drizzle/` and check it does only what you intended. `DROP TABLE`, or a table being
   recreated and its data copied, deserves a second look — if it isn't obviously right, stop.
@@ -96,9 +99,16 @@ undo — a bad migration destroys real rows, or crashes the app on startup until
   drizzle-kit asks whether it's a rename or a drop+create. The wrong answer generates
   `DROP` + `CREATE` and silently discards every row. Answer "rename", and verify the SQL says
   `RENAME`.
-- **Remove things in two deploys, never one.** To reshape or retire a column/table:
-  (1) add the new column/table and deploy; (2) backfill/copy in app code and switch reads over;
-  (3) only then drop the old one, as its own later migration.
+- **Remove things in two deploys, never one — and backfill in a migration, not in app code.**
+  To reshape or retire a column/table: (1) add the new column/table *and copy the old data across
+  in the same deploy* — scaffold a data migration with `drizzle-kit generate --custom` and write
+  the `UPDATE` / `INSERT … SELECT` there — then deploy; (2) switch reads to the new shape and
+  deploy; (3) only then drop the old column/table, as its own later migration. The copy **must**
+  live in migration SQL: each Durable Object runs its own migrations when it next wakes, so a
+  backfill written in request-handling code only touches objects that get traffic — and the drop
+  migration still runs on every dormant object and deletes the rows that were never copied. If a
+  backfill genuinely can't be expressed as SQL, prove every object has been copied before you ship
+  the drop.
 - **Never edit a migration that has reached `main`.** Deployed objects have already recorded it
   as applied and will never re-run it — editing it only makes old and new objects diverge.
   A fix is always a *new* migration. (This mirrors the append-only `migrations` rule for
