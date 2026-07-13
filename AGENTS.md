@@ -52,6 +52,7 @@ wrong place. There is no `npm run deploy`.
 - **Database**: edit tables in `worker/schema.ts` (Drizzle ORM), then run `npm run db:generate`
   and commit the new files under `drizzle/`. **Never hand-edit `drizzle/`** — it is generated.
   Row types live in `worker/schema.ts` (e.g. `Note`); import them, don't redefine them.
+  Before changing an **existing** table, read *Changing the database schema* below.
 - **Routes/UI**: file-based routes in `src/routes/`; shadcn/ui components are preinstalled.
   For entrance motion, wrap a section in `<Reveal>` (`@/components/ui/motion`) — a subtle
   fade + rise on mount. It is pure CSS and auto-disables under reduced-motion. Use `asChild`
@@ -78,4 +79,33 @@ wrong place. There is no `npm run deploy`.
 - **React** write modern React code that a senior developer would write. Avoid using useEffect. Break very large components into smaller ones.
 - **Mobile Responsive** Make the app mobile responsive
 - **Links not buttons for navigation** Always use a link button when a button purely navigates to a page
+
+## Changing the database schema — avoid data loss
+
+Migrations run **inside the deployed app, against live data**: each Durable Object applies any
+pending files from `drizzle/` the next time it wakes up, before serving requests. There is no
+undo — a bad migration destroys real rows, or crashes the app on startup until a fix is deployed.
+
+- **Prefer additive changes.** New tables, and new columns that are optional or have a
+  `.default(...)`, are always safe. A `.notNull()` column added to an existing table **must**
+  have a `.default(...)`, or the migration fails on any object that already has rows.
+- **Read the generated SQL before committing.** After `npm run db:generate`, open the new file
+  under `drizzle/` and check it does only what you intended. `DROP TABLE`, or a table being
+  recreated and its data copied, deserves a second look — if it isn't obviously right, stop.
+- **Renames are the trap.** When a table or column is renamed in `worker/schema.ts`,
+  drizzle-kit asks whether it's a rename or a drop+create. The wrong answer generates
+  `DROP` + `CREATE` and silently discards every row. Answer "rename", and verify the SQL says
+  `RENAME`.
+- **Remove things in two deploys, never one.** To reshape or retire a column/table:
+  (1) add the new column/table and deploy; (2) backfill/copy in app code and switch reads over;
+  (3) only then drop the old one, as its own later migration.
+- **Never edit a migration that has reached `main`.** Deployed objects have already recorded it
+  as applied and will never re-run it — editing it only makes old and new objects diverge.
+  A fix is always a *new* migration. (This mirrors the append-only `migrations` rule for
+  `wrangler.jsonc` above — same reason, different file.)
+- **Test the migration on existing data before pushing.** `npm run dev` persists a local SQLite
+  copy: add a few rows first, then make the schema change, regenerate, and restart dev. If the
+  app errors on startup locally, it would crash the same way in production.
+- **Unsure? Ask AppGarden first** (send an expert question) instead of pushing to find out —
+  a failed migration takes the app down for its users until someone ships a fix.
 
