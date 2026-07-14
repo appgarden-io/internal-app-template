@@ -1,0 +1,4 @@
+# Force LF in the working tree on every platform. Windows git defaults to
+# core.autocrlf=true, which checks text files out as CRLF — Biome formats
+# with LF, so without this every file fails `biome check` on a fresh PC clone.
+* text=auto eol=lf
