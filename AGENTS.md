@@ -52,6 +52,7 @@ wrong place. There is no `npm run deploy`.
 - **Database**: edit tables in `worker/schema.ts` (Drizzle ORM), then run `npm run db:generate`
   and commit the new files under `drizzle/`. **Never hand-edit `drizzle/`** — it is generated.
   Row types live in `worker/schema.ts` (e.g. `Note`); import them, don't redefine them.
+  Before changing an **existing** table, read *Changing the database schema* below.
 - **Routes/UI**: file-based routes in `src/routes/`; shadcn/ui components are preinstalled.
   For entrance motion, wrap a section in `<Reveal>` (`@/components/ui/motion`) — a subtle
   fade + rise on mount. It is pure CSS and auto-disables under reduced-motion. Use `asChild`
@@ -78,4 +79,43 @@ wrong place. There is no `npm run deploy`.
 - **React** write modern React code that a senior developer would write. Avoid using useEffect. Break very large components into smaller ones.
 - **Mobile Responsive** Make the app mobile responsive
 - **Links not buttons for navigation** Always use a link button when a button purely navigates to a page
+
+## Changing the database schema — avoid data loss
+
+Migrations run **inside the deployed app, against live data**: each Durable Object applies any
+pending files from `drizzle/` the next time it wakes up, before serving requests. There is no
+undo — a bad migration destroys real rows, or crashes the app on startup until a fix is deployed.
+
+- **Prefer additive changes — but still read the SQL.** New tables and new *optional* or
+  `.default(...)` columns are the safest kind of change, not a guaranteed-safe one. A `.notNull()`
+  column added to an existing table **must** carry a `.default(...)`, or the migration fails on any
+  object that already has rows; and a unique constraint, a unique index over existing data, or a
+  non-constant default can still fail or make drizzle-kit rebuild the whole table. "Additive"
+  lowers the risk — it doesn't remove the next rule.
+- **Read the generated SQL before committing.** After `npm run db:generate`, open the new file
+  under `drizzle/` and check it does only what you intended. `DROP TABLE`, or a table being
+  recreated and its data copied, deserves a second look — if it isn't obviously right, stop.
+- **Renames are the trap.** When a table or column is renamed in `worker/schema.ts`,
+  drizzle-kit asks whether it's a rename or a drop+create. The wrong answer generates
+  `DROP` + `CREATE` and silently discards every row. Answer "rename", and verify the SQL says
+  `RENAME`.
+- **Remove things in two deploys, never one — and backfill in a migration, not in app code.**
+  To reshape or retire a column/table: (1) add the new column/table *and copy the old data across
+  in the same deploy* — scaffold a data migration with `drizzle-kit generate --custom` and write
+  the `UPDATE` / `INSERT … SELECT` there — then deploy; (2) switch reads to the new shape and
+  deploy; (3) only then drop the old column/table, as its own later migration. The copy **must**
+  live in migration SQL: each Durable Object runs its own migrations when it next wakes, so a
+  backfill written in request-handling code only touches objects that get traffic — and the drop
+  migration still runs on every dormant object and deletes the rows that were never copied. If a
+  backfill genuinely can't be expressed as SQL, prove every object has been copied before you ship
+  the drop.
+- **Never edit a migration that has reached `main`.** Deployed objects have already recorded it
+  as applied and will never re-run it — editing it only makes old and new objects diverge.
+  A fix is always a *new* migration. (This mirrors the append-only `migrations` rule for
+  `wrangler.jsonc` above — same reason, different file.)
+- **Test the migration on existing data before pushing.** `npm run dev` persists a local SQLite
+  copy: add a few rows first, then make the schema change, regenerate, and restart dev. If the
+  app errors on startup locally, it would crash the same way in production.
+- **Unsure? Ask AppGarden first** (send an expert question) instead of pushing to find out —
+  a failed migration takes the app down for its users until someone ships a fix.
 
