@@ -75,6 +75,22 @@ npm run db:generate  # regenerate drizzle/ migrations after editing worker/schem
 There is no `deploy` script — **deploying is just `git push` to `main`** (see below). Never run
 `wrangler deploy` by hand.
 
+### Windows note — line endings
+
+The repo pins **LF** line endings via `.gitattributes` (`* text=auto eol=lf`), because Biome formats
+LF and Windows git defaults to `core.autocrlf=true` (CRLF checkouts). A fresh clone therefore just
+works on Windows. If `npm run lint` ever reports format errors on files you didn't touch, naming
+line-ending differences (CRLF vs LF), your working tree predates the pin — don't reformat anything;
+re-checkout instead:
+
+```bash
+git pull                  # make sure .gitattributes is present
+git rm --cached -r .
+git reset --hard          # re-checkout everything as LF
+```
+
+(Or simply delete the folder and clone fresh.)
+
 ## How this template is used
 
 **Created from a template repository.** A new app repo is generated from this repo
