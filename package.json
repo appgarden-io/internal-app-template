@@ -12,6 +12,8 @@
     "format": "biome format --write .",
     "cf-typegen": "wrangler types --include-runtime=false ./worker/worker-configuration.d.ts",
     "db:generate": "drizzle-kit generate",
+    "check:sizes": "node scripts/check-file-sizes.mjs",
+    "check:migrations": "node scripts/check-migrations.mjs",
     "prepare": "husky"
   },
   "dependencies": {

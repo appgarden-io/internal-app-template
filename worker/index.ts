@@ -2,23 +2,15 @@ import { Hono } from "hono";
 import { type ApiEnv, type AppStorage, apiRoutes } from "../src/lib/api-routes";
 import { slugToAppName } from "../src/lib/app-name";
 import { createAiRunner } from "./ai-runner";
+import type { Env } from "./env";
 import { createFileStore } from "./file-store";
 import { StorageDurableObject } from "./storage-do";
 
+// The Cloudflare bindings type lives in `./env` so `storage-do.ts` can type
+// `DurableObject<Env>` without importing this entrypoint. Re-exported here so
+// existing `import { Env } from "./index"` call sites keep working.
+export type { Env };
 export { StorageDurableObject };
-
-export interface Env {
-  ASSETS: Fetcher;
-  STORAGE: DurableObjectNamespace<StorageDurableObject>;
-  // Workers AI — routed through AI Gateway in `worker/ai-runner.ts`.
-  AI: Ai;
-  // R2 object storage — this App's own bucket (one per App), created at deploy.
-  // Keys are flat; the bucket is the isolation boundary (see worker/file-store.ts).
-  BUCKET: R2Bucket;
-  // This App's slug (its repo name), set by the Deploy workflow via
-  // `--var APP_SLUG:<repo>`; drives the App's display name (see slugToAppName).
-  APP_SLUG: string;
-}
 
 // A single, shared Durable Object instance backs the app. Key the instance by
 // tenant, user, or resource id instead if the app needs more than one.
