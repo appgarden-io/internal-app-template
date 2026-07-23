@@ -39,6 +39,10 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+      # The 400-line ceiling is a real ship gate here, not just a local hook —
+      # deterministic and cheap, so CI re-runs it even if a commit bypassed the
+      # husky pre-commit (`--no-verify`, or a clone without the hooks installed).
+      - run: npm run check:sizes
       # Minted straight from the runner's token endpoint (no third-party
       # action), masked, and handed to the deploy script as env.
       - name: Mint the deploy OIDC token

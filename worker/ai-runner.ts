@@ -1,7 +1,7 @@
-import type { AiRunner } from "../src/lib/api-routes";
+import type { AiRunner } from "../src/lib/api/seams";
 
 /**
- * Concrete side of the `AiRunner` seam (`src/lib/api-routes.ts`): adapts the
+ * Concrete side of the `AiRunner` seam (`src/lib/api/seams.ts`): adapts the
  * Cloudflare Workers AI binding (`env.AI`) to the Worker-free interface the
  * routes depend on.
  *

@@ -70,7 +70,23 @@ npm run typecheck    # tsc -b --noEmit
 npm run lint         # biome check .
 npm run cf-typegen   # regenerate worker/worker-configuration.d.ts (optional)
 npm run db:generate  # regenerate drizzle/ migrations after editing worker/schema.ts
+npm run check:sizes  # fail if any non-generated source file exceeds 400 lines
+npm run check:migrations  # guard against edits/deletes of committed migrations and unsafe SQL
 ```
+
+Husky hooks run these locally as a speed bump — they are bypassable (`git commit --no-verify`,
+or a clone where husky never installed the hooks), so treat them as a fast local check, not a
+hard gate. A pre-commit hook runs `lint`, `typecheck`, and `check:sizes`; a commit-msg hook runs
+`check:migrations`. The deploy workflow re-runs `lint`, `typecheck`, `build`, and `check:sizes`
+as the real ship gate, so the 400-line ceiling is enforced even on a bypassed commit; the
+migration guard is commit-message-based and stays local-only. The migration guard blocks modifying or
+deleting an already-committed `drizzle/*.sql` (comment-only edits allowed) and blocks a new
+migration containing `DROP TABLE` / `DROP COLUMN` / a `__new_` table-rebuild unless the commit
+message carries a `MIGRATION-ACK` token. Biome additionally enforces `noNestedTernary` and
+`noExcessiveCognitiveComplexity` (max 15) on the app's own code. See `AGENTS.md` for the rationale.
+
+If you add a dependency and CI later fails on `npm ci` (lockfile out of sync), regenerate the
+lockfile with `rm -rf node_modules package-lock.json && npm install` and commit it.
 
 There is no `deploy` script — **deploying is just `git push` to `main`** (see below). Never run
 `wrangler deploy` by hand.
@@ -114,16 +130,32 @@ Workers-for-Platforms namespace, and there is no secret in the org to leak or ro
 
 ## API examples
 
-`src/lib/api-routes.ts` defines the typed Hono routes (`/api/example`, `/api/health`,
-and the `/api/notes` CRUD). `src/lib/api.ts` creates the matching Hono `hc` client and is
-the only place the SPA talks to the API; `src/routes/index.tsx` calls it with TanStack Query.
-Request, response, and path-param types flow from the route definitions to the client with no
-casts — that is the intended typed client/server API pattern.
+The typed Hono routes live as **one module per feature** under `src/lib/api/`
+(`system.ts` → `/api/example` + `/api/health`, `config.ts` → `/api/config`, `notes.ts` → the
+`/api/notes` CRUD, `ai.ts` → `/api/ai/generate`, `files.ts` → `/api/files`). `src/lib/api/index.ts`
+composes them with `.route(prefix, subApp)` and exports `type ApiRoutes`; the seam interfaces both
+sides implement live in `src/lib/api/seams.ts`. `src/lib/api.ts` creates the matching Hono `hc`
+client and is the only place the SPA talks to the API; each client helper calls the endpoint,
+asserts `expectOk`, and returns the parsed body. `src/routes/index.tsx` calls the client with
+TanStack Query. Request bodies and numeric path params are validated with `@hono/zod-validator`
+(`zValidator`), and request, response, and path-param types flow from the route definitions to the
+client with no casts — that is the intended typed client/server API pattern.
+
+### Loading, error, and empty states
+
+Data views render the full state ladder, not just the happy path. `src/routes/index.tsx` reads
+notes with react-query `useQuery` and renders — via early returns — `ui/skeleton` rows while
+pending, `ui/empty` with a Retry on error, `ui/empty` when there are no rows, then the table.
+Route-level fallbacks (`RoutePending`, `RouteError`) live in `src/components/route-status.tsx` and
+are wired as the router's `defaultPendingComponent` / `defaultErrorComponent` in `src/main.tsx`.
+Components used by a single route live in a dash-prefixed feature folder (`src/routes/-notes/`) so
+TanStack Router doesn't treat them as routes.
 
 ## AI and R2 storage
 
 Two more Cloudflare bindings ship wired-in, behind the same seam pattern as storage
-(`src/lib/api-routes.ts` stays Cloudflare-free; the Worker injects the real adapter):
+(the route modules under `src/lib/api/` stay Cloudflare-free — the seams live in
+`src/lib/api/seams.ts` — and the Worker injects the real adapter):
 
 - **AI** (`env.AI`) — Workers AI, routed through **AI Gateway**. The adapter
   (`worker/ai-runner.ts`) calls `ai.run(model, inputs, { gateway: { id: "default" } })`; the
@@ -155,9 +187,12 @@ real account, even in dev).
 
 `worker/storage-do.ts` is a SQLite Durable Object that accesses its database
 through **Drizzle ORM**. The Hono routes (`GET/POST /api/notes`, `DELETE /api/notes/:id`)
-reach it through the `NotesStorage` seam: they depend on that interface, and `worker/index.ts`
-injects the DO stub. This keeps the routes Worker-free so the SPA can import their types. The
-`notes` table is a **placeholder** — replace it with your app's real data model.
+reach it through the `NotesStorage` seam (`src/lib/api/seams.ts`): they depend on that interface,
+and `worker/index.ts` injects the DO stub. This keeps the routes Worker-free so the SPA can import
+their types. The DO stays thin — it delegates to per-feature repository modules under
+`worker/storage/` (plain functions taking the drizzle `Db`, e.g. `worker/storage/notes.ts` typed
+via `worker/storage/db.ts`). The `notes` table is a **placeholder** — replace it with your app's
+real data model.
 
 ```
 worker/schema.ts   the tables (single source of the row types) ── edit this

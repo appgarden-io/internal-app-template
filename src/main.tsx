@@ -2,6 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { RouteError, RoutePending } from "@/components/route-status";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { fetchAppName } from "./lib/api";
 import { queryClient } from "./query-client";
@@ -19,7 +20,11 @@ void fetchAppName()
   })
   .catch(() => {});
 
-const router = createRouter({ routeTree });
+const router = createRouter({
+  routeTree,
+  defaultPendingComponent: RoutePending,
+  defaultErrorComponent: RouteError,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

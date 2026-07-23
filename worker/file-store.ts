@@ -1,7 +1,7 @@
-import type { FileStore, StoredFile } from "../src/lib/api-routes";
+import type { FileStore, StoredFile } from "../src/lib/api/seams";
 
 /**
- * Concrete side of the `FileStore` seam (`src/lib/api-routes.ts`): adapts the
+ * Concrete side of the `FileStore` seam (`src/lib/api/seams.ts`): adapts the
  * Cloudflare R2 bucket binding (`env.BUCKET`) to the Worker-free interface the
  * routes depend on.
  *
