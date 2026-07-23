@@ -16,7 +16,6 @@
 // Pure Node, no dependencies. Wired into npm run check:sizes and pre-commit.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
 
 const MAX_LINES = 400;
 
@@ -28,29 +27,28 @@ const isExempt = (path) =>
   path.startsWith("drizzle/") ||
   path.startsWith("src/components/ui/");
 
-const listSourceFiles = () => {
-  // `--cached` covers tracked files and `--others --exclude-standard` covers
-  // new, not-yet-committed files, so the guard checks the working tree exactly
-  // as it will be committed. Files staged for deletion still show under
-  // `--cached`, so we drop any path that no longer exists on disk below.
+const listStagedSourceFiles = () => {
+  // `--cached` lists the paths in the index (stage 0) — exactly what a commit
+  // will contain. A file staged for deletion is already gone from the index, so
+  // it never appears; a newly added file appears only once staged. We read the
+  // index rather than the working tree on purpose (see countLines): the two can
+  // differ, and the commit ships the index. Mirrors check-migrations.mjs, which
+  // also evaluates the staged snapshot (`git diff --cached`).
   const output = execFileSync(
     "git",
-    [
-      "ls-files",
-      "--cached",
-      "--others",
-      "--exclude-standard",
-      "--",
-      ...SOURCE_GLOBS,
-    ],
+    ["ls-files", "--cached", "--", ...SOURCE_GLOBS],
     { encoding: "utf8" },
   );
-  const unique = new Set(output.split("\n").filter(Boolean));
-  return [...unique].filter((path) => existsSync(path));
+  return [...new Set(output.split("\n").filter(Boolean))];
 };
 
 const countLines = (path) => {
-  const contents = readFileSync(path, "utf8");
+  // Read the staged blob, not the working-tree file: otherwise an oversized file
+  // can be `git add`ed, then truncated on disk, and this guard would measure the
+  // small working copy while the commit ships the large index blob.
+  const contents = execFileSync("git", ["show", `:${path}`], {
+    encoding: "utf8",
+  });
   if (contents.length === 0) return 0;
   const withoutTrailingNewline = contents.endsWith("\n")
     ? contents.slice(0, -1)
@@ -59,7 +57,7 @@ const countLines = (path) => {
 };
 
 const offenders = [];
-for (const path of listSourceFiles()) {
+for (const path of listStagedSourceFiles()) {
   if (isExempt(path)) continue;
   const lines = countLines(path);
   if (lines > MAX_LINES) offenders.push({ path, lines });
