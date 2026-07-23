@@ -16,7 +16,7 @@ monorepo and pins its own dependency versions.
 | Styling    | Tailwind CSS v4 (`@tailwindcss/vite`) + shadcn/ui   |
 | API        | Hono, running inside the Worker, mounted at `/api`  |
 | Storage    | SQLite Durable Object (`StorageDurableObject`)      |
-| Files      | R2 object storage (`BUCKET`), shared per account    |
+| Files      | R2 object storage (`BUCKET`), one bucket per App    |
 | AI         | Workers AI via AI Gateway (`AI` binding)            |
 | Data access| Drizzle ORM (`durable-sqlite`) + committed migrations |
 | Lint/Format| Biome                                               |
@@ -25,10 +25,10 @@ monorepo and pins its own dependency versions.
 
 ```
 Request
-  /api/example ──► Worker (Hono) ──► TanStack Query via Hono hc
-  /api/notes   ──► Worker (Hono) ──► STORAGE Durable Object (SQLite)
+  /api/health  ──► Worker (Hono) ──► STORAGE Durable Object (SQLite)
+  /api/config  ──► Worker (Hono) ──► app name from APP_SLUG
   /api/ai/*    ──► Worker (Hono) ──► AI binding ──► AI Gateway (default)
-  /api/files/* ──► Worker (Hono) ──► BUCKET (R2, shared; keyed by <slug>/)
+  /api/files/* ──► Worker (Hono) ──► BUCKET (R2, one bucket per App)
   /*      ──► ASSETS binding ──► dist/client (index.html SPA fallback)
 ```
 
@@ -45,10 +45,10 @@ This template has **no scaffold placeholders** — it is a real, runnable app,
 generated verbatim when a new app repo is created from it. It ships with default
 identity you can keep or change:
 
-| Field         | Default         | Where                                |
-| ------------- | --------------- | ------------------------------------ |
-| Worker name   | `appgarden-app` | `wrangler.jsonc` (`name`)            |
-| Display title | `AppGarden App` | `index.html`, `src/routes/index.tsx` |
+| Field         | Default         | Where                     |
+| ------------- | --------------- | ------------------------- |
+| Worker name   | `appgarden-app` | `wrangler.jsonc` (`name`) |
+| Display title | `AppGarden App` | `index.html`              |
 
 The **deployed** script name is the app slug — this repo's name — stamped by the
 AppGarden deploy gateway from the App's registration, so the slug is never
@@ -112,13 +112,18 @@ Workers-for-Platforms namespace, and there is no secret in the org to leak or ro
 > variables, no secrets. Deploy authentication is the workflow-minted OIDC token, so the
 > GitHub org needs nothing beyond the repo itself.
 
-## API examples
+## The API pattern
 
-`src/lib/api-routes.ts` defines the typed Hono routes (`/api/example`, `/api/health`,
-and the `/api/notes` CRUD). `src/lib/api.ts` creates the matching Hono `hc` client and is
-the only place the SPA talks to the API; `src/routes/index.tsx` calls it with TanStack Query.
-Request, response, and path-param types flow from the route definitions to the client with no
-casts — that is the intended typed client/server API pattern.
+`src/lib/api-routes.ts` defines the typed Hono routes; `src/lib/api.ts` creates the matching
+Hono `hc` client (`apiClient`), the only way the SPA talks to the API. Request, response, and
+path-param types flow from the route definitions to the client with no casts.
+
+The minimal worked example is the health check: `GET /api/health` threads
+route → `AppStorage` interface → `StorageDurableObject`, and the home page
+(`src/routes/index.tsx`) calls it through `apiClient` with TanStack Query — the
+"connected" badge is live proof the whole stack is wired. Build real features
+the same way; the patterns are documented in
+`.claude/skills/template-patterns/`.
 
 ## AI and R2 storage
 
@@ -130,8 +135,8 @@ Two more Cloudflare bindings ship wired-in, behind the same seam pattern as stor
   `default` gateway auto-creates on first use, giving caching, rate-limiting, and analytics with
   no setup. Example route: `POST /api/ai/generate`.
 - **Files** (`env.BUCKET`) — R2 object storage. Example routes: `GET`/`POST /api/files` and
-  `GET`/`DELETE /api/files/:key`. Client helpers live in `src/lib/api.ts` (`generateText`,
-  `listFiles`, `uploadFile`, `downloadFile`, `deleteFile`).
+  `GET`/`DELETE /api/files/:key`. Call them from the SPA through `apiClient`
+  (e.g. `apiClient.files.$post({ form: { file } })`).
 
 ### A bucket per app
 
@@ -154,12 +159,15 @@ real account, even in dev).
 ## Storage: Drizzle ORM + SQLite Durable Object
 
 `worker/storage-do.ts` is a SQLite Durable Object that accesses its database
-through **Drizzle ORM**. The Hono routes (`GET/POST /api/notes`, `DELETE /api/notes/:id`)
-reach it through the `AppStorage` seam: they depend on that interface, and `worker/index.ts`
-injects the DO stub. This keeps the routes Worker-free so the SPA can import their types. The
-`notes` table is a **placeholder** — build your app's real data model alongside it, then run
-`npm run reset-example` to strip the example in one shot (see *First customisation* in
-`AGENTS.md`).
+through **Drizzle ORM**. Routes reach it through the `AppStorage` seam: they depend on that
+interface, and `worker/index.ts` injects the DO stub. This keeps the routes Worker-free so the
+SPA can import their types.
+
+The template ships with an **empty schema** and an empty migration journal —
+`drizzle/migrations.js` is a hand-written empty bundle (the one sanctioned exception to "never
+hand-edit `drizzle/`", noted in the file) because drizzle-kit emits nothing for a table-free
+schema. Add your first table to `worker/schema.ts`, run `npm run db:generate`, and the real
+migration `0000` replaces it.
 
 ```
 worker/schema.ts   the tables (single source of the row types) ── edit this
@@ -179,10 +187,14 @@ To change the schema:
    copied-out app deploys without a generate step. The Durable Object applies any
    pending migrations the next time it starts (`blockConcurrencyWhile`).
 
-Row types live only in the schema: `worker/schema.ts` exports
-`type Note = typeof notes.$inferSelect`, and `src/lib/api.ts` re-exports it via
-`import type`, so the server and SPA can never drift. **Never hand-edit
-`drizzle/`** — it is regenerated from the schema.
+Once an app is deployed, schema changes can destroy live data — before ANY
+change to `worker/schema.ts`, read
+`.claude/skills/template-patterns/references/database.md`.
+
+Row types live only in the schema: `worker/schema.ts` exports them via
+`$inferSelect` (e.g. `export type Note = typeof notes.$inferSelect`), and the
+SPA imports them with `import type`, so the server and SPA can never drift.
+**Never hand-edit `drizzle/`** — it is regenerated from the schema.
 
 ### Why no bundler config for `.sql`
 

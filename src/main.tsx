@@ -3,21 +3,9 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { fetchAppName } from "./lib/api";
 import { queryClient } from "./query-client";
 import { routeTree } from "./routeTree.gen";
 import "./styles.css";
-
-// The browser tab title is the App's human-readable name, derived server-side
-// from its slug (`/api/config`). It's a document-level, set-once concern, so we
-// set it here at the composition root rather than from inside React — no
-// `useEffect`, and it doesn't block first paint. If the fetch fails, the static
-// title in `index.html` stays.
-void fetchAppName()
-  .then((appName) => {
-    document.title = appName;
-  })
-  .catch(() => {});
 
 const router = createRouter({ routeTree });
 
