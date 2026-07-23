@@ -8,7 +8,7 @@ description: How to build features in this AppGarden app — the storage/AI/file
 This app is one Cloudflare Worker serving a React SPA and a Hono API, with a
 SQLite Durable Object for storage. Every feature threads the same four layers:
 
-```
+```text
 typed Hono route ──► seam interface ──► Worker adapter ──► Cloudflare binding
 (api-routes.ts)      (AppStorage,        (storage-do.ts,     (STORAGE, AI,
         ▲             AiRunner,           ai-runner.ts,       BUCKET)

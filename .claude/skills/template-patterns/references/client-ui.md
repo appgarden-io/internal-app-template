@@ -110,4 +110,7 @@ function HomePage() {
 
 `src/routes/index.tsx` is the minimal live page: a TanStack Query `queryFn`
 calling `apiClient.health.$get()` directly, an inline status ladder rendered as
-a badge, `<Reveal>` + shadcn `Card` for layout.
+a badge, `<Reveal>` + shadcn `Card` for layout. App-wide config (`/api/config`)
+is fetched once in the root route's loader (`src/routes/__root.tsx`), which
+also sets the tab title; pages read it with
+`useLoaderData({ from: "__root__" })`.

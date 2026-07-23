@@ -45,6 +45,12 @@ Upload stays inside the typed client by using multipart form data (no raw
 })
 ```
 
+Note the trade-off this example makes: the client-supplied `file.name` is the
+key, and `put` on an existing key silently overwrites it. That's fine for a
+simple "my files" screen; if your feature must not overwrite (or accepts
+untrusted uploaders), generate the key server-side in the route (e.g.
+`crypto.randomUUID()` plus the extension) and return it to the client.
+
 Called from the SPA:
 
 ```ts

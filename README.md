@@ -16,7 +16,7 @@ monorepo and pins its own dependency versions.
 | Styling    | Tailwind CSS v4 (`@tailwindcss/vite`) + shadcn/ui   |
 | API        | Hono, running inside the Worker, mounted at `/api`  |
 | Storage    | SQLite Durable Object (`StorageDurableObject`)      |
-| Files      | R2 object storage (`BUCKET`), shared per account    |
+| Files      | R2 object storage (`BUCKET`), one bucket per App    |
 | AI         | Workers AI via AI Gateway (`AI` binding)            |
 | Data access| Drizzle ORM (`durable-sqlite`) + committed migrations |
 | Lint/Format| Biome                                               |

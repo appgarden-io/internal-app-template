@@ -8,7 +8,7 @@ it, so server and client can never drift. The SPA imports row types with
 `import type`, which is erased at build — no Worker code reaches the browser
 bundle.
 
-```
+```text
 worker/schema.ts   the tables (single source of the row types) ── edit this
       │  npm run db:generate
       ▼

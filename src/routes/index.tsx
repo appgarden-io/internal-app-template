@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useLoaderData } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -15,16 +15,7 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
-  const config = useQuery({
-    queryKey: ["config"],
-    queryFn: async () => {
-      const res = await apiClient.config.$get();
-      if (!res.ok) {
-        throw new Error(`Failed to load app config (${res.status})`);
-      }
-      return res.json();
-    },
-  });
+  const { appName } = useLoaderData({ from: "__root__" });
 
   // Threads the whole stack — typed route → `AppStorage` → Durable Object —
   // so the badge below is live proof that storage is wired and migrated.
@@ -44,9 +35,7 @@ function HomePage() {
       <Reveal asChild>
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">
-              {config.data?.appName ?? "App"}
-            </CardTitle>
+            <CardTitle className="text-2xl">{appName}</CardTitle>
             <CardDescription>
               Ready to build — replace this page in{" "}
               <code>src/routes/index.tsx</code>.
