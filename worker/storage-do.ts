@@ -6,6 +6,7 @@ import {
 } from "drizzle-orm/durable-sqlite";
 import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import migrations from "../drizzle/migrations";
+import type { Env } from "./env";
 import * as schema from "./schema";
 
 /**
@@ -21,11 +22,11 @@ import * as schema from "./schema";
  * stays generic so the Durable Object never needs renaming (which would force
  * a Cloudflare migration).
  */
-export class StorageDurableObject extends DurableObject {
+export class StorageDurableObject extends DurableObject<Env> {
   private readonly db: DrizzleSqliteDODatabase<typeof schema>;
 
-  constructor(ctx: DurableObjectState, env: unknown) {
-    super(ctx, env as never);
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
     // Passing `schema` enables the relational query API (`db.query.*`).
     this.db = drizzle(ctx.storage, { schema, logger: false });
 

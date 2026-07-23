@@ -29,7 +29,22 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      // Nested ternaries and deeply-tangled functions are the two smells that
+      // make demo code hard for the next agent to copy correctly. Ban both:
+      // rewrite nested ternaries as early returns, and split any function past
+      // cognitive-complexity 15 (Biome's own default) into smaller pieces.
+      "style": {
+        "noNestedTernary": "error"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 15
+          }
+        }
+      }
     }
   },
   "overrides": [
@@ -48,11 +63,17 @@
             "useKeyWithClickEvents": "off",
             "useSemanticElements": "off"
           },
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off"
+          },
           "correctness": {
             "useExhaustiveDependencies": "off"
           },
           "security": {
             "noDangerouslySetInnerHtml": "off"
+          },
+          "style": {
+            "noNestedTernary": "off"
           },
           "suspicious": {
             "noArrayIndexKey": "off",

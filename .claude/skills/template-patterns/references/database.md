@@ -91,6 +91,15 @@ or crashes the app on startup until a fix is deployed.
   makes old and new objects diverge. A fix is always a *new* migration. (This
   mirrors the append-only `migrations` rule for `wrangler.jsonc` in AGENTS.md —
   same reason, different file.)
+- **A commit hook enforces the two rules above.** `scripts/check-migrations.mjs`
+  (wired to `commit-msg`) blocks deleting or editing a committed `drizzle/*.sql`
+  (comment-only edits are allowed), and blocks a *new* migration containing
+  `DROP TABLE` / `DROP COLUMN` / a `__new_` table rebuild unless the commit
+  message contains the token `MIGRATION-ACK`. drizzle-kit rebuilds a table via
+  `__new_` for many ordinary column changes, so the guard fires on legitimate
+  edits too — read the generated SQL, confirm it is what you intended, then add
+  `MIGRATION-ACK` to acknowledge it. The hook is a local speed bump, not a
+  substitute for reading the SQL.
 - **Test the migration on existing data before pushing.** `npm run dev`
   persists a local SQLite copy: add a few rows first, then make the schema
   change, regenerate, and restart dev. If the app errors on startup locally, it
