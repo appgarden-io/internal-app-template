@@ -1,206 +1,66 @@
-// <example:notes file>
-// This whole home page is the notes example — a working demo of the template's
-// patterns: route loader → typed client, TanStack Table columns, sidebar
-// layout, and <Reveal> entrance motion. Build the real app's pages the same
-// way. While this marker line is present, `npm run reset-example` replaces the
-// file with a blank starting page; once you rewrite this page for the real
-// app, delete the marker comment block.
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import type { ColumnDef } from "@tanstack/react-table";
-import { Loader2, NotebookPen, Plus, Sparkles, Trash2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { DataTable, DataTableColumnHeader } from "@/components/ui/data-table";
-import { Input } from "@/components/ui/input";
-import { Reveal } from "@/components/ui/motion";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { Badge } from "@/components/ui/badge";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { createNote, deleteNote, fetchNotes } from "@/lib/api";
-// The row type comes straight from the Drizzle schema — the single source of
-// truth shared with the Worker (see AGENTS.md: import row types, don't
-// redefine them).
-import type { Note } from "../../worker/schema";
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Reveal } from "@/components/ui/motion";
+import { apiClient } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
-  loader: () => fetchNotes(),
   component: HomePage,
 });
 
 function HomePage() {
-  const notes = Route.useLoaderData();
-  const router = useRouter();
-  const [text, setText] = useState("");
-  const [pending, setPending] = useState(false);
-
-  const handleAdd = async () => {
-    const value = text.trim();
-    if (!value || pending) {
-      return;
-    }
-    setPending(true);
-    try {
-      await createNote(value);
-      setText("");
-      await router.invalidate();
-    } finally {
-      setPending(false);
-    }
-  };
-
-  const handleDelete = useCallback(
-    async (id: number) => {
-      await deleteNote(id);
-      await router.invalidate();
+  const config = useQuery({
+    queryKey: ["config"],
+    queryFn: async () => {
+      const res = await apiClient.config.$get();
+      if (!res.ok) {
+        throw new Error(`Failed to load app config (${res.status})`);
+      }
+      return res.json();
     },
-    [router],
-  );
+  });
 
-  const columns = useMemo<ColumnDef<Note>[]>(
-    () => [
-      {
-        accessorKey: "text",
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Note" />
-        ),
-        cell: ({ row }) => (
-          <span className="font-medium">{row.original.text}</span>
-        ),
-      },
-      {
-        accessorKey: "createdAt",
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Created" />
-        ),
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">
-            {new Date(row.original.createdAt).toLocaleString()}
-          </span>
-        ),
-      },
-      {
-        id: "actions",
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Delete note"
-              onClick={() => void handleDelete(row.original.id)}
-            >
-              <Trash2 />
-            </Button>
-          </div>
-        ),
-      },
-    ],
-    [handleDelete],
-  );
+  // Threads the whole stack — typed route → `AppStorage` → Durable Object —
+  // so the badge below is live proof that storage is wired and migrated.
+  const health = useQuery({
+    queryKey: ["health"],
+    queryFn: async () => {
+      const res = await apiClient.health.$get();
+      if (!res.ok) {
+        throw new Error(`Health check failed (${res.status})`);
+      }
+      return res.json();
+    },
+  });
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-14 items-center gap-2 border-b px-4">
-          <SidebarTrigger />
-          <span className="text-sm font-medium">Notes</span>
-        </header>
-
-        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10">
-          <Reveal asChild>
-            <div className="flex flex-col gap-2">
-              <h1 className="text-3xl font-semibold tracking-tight">Notes</h1>
-              <p className="text-muted-foreground">
-                Jot down anything you want to remember — it's saved the moment
-                you add it.
-              </p>
+    <main className="mx-auto flex w-full max-w-3xl flex-col px-6 py-10">
+      <Reveal asChild>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl">
+              {config.data?.appName ?? "App"}
+            </CardTitle>
+            <CardDescription>
+              Ready to build — replace this page in{" "}
+              <code>src/routes/index.tsx</code>.
+            </CardDescription>
+            <div className="pt-1">
+              {health.isPending && <Badge variant="outline">Checking…</Badge>}
+              {health.isError && (
+                <Badge variant="destructive">Storage unreachable</Badge>
+              )}
+              {health.isSuccess && <Badge>Connected</Badge>}
             </div>
-          </Reveal>
-
-          <Reveal asChild delay={80}>
-            <Card>
-              <CardContent className="flex flex-col gap-4">
-                <form
-                  className="flex gap-2"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void handleAdd();
-                  }}
-                >
-                  <Input
-                    placeholder="Write a note…"
-                    value={text}
-                    onChange={(event) => setText(event.target.value)}
-                    aria-label="Note text"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={pending || text.trim() === ""}
-                  >
-                    {pending ? <Loader2 className="animate-spin" /> : <Plus />}
-                    Add
-                  </Button>
-                </form>
-
-                {notes.length === 0 ? (
-                  <div className="rounded-xl border border-dashed px-6 py-10 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      No notes yet. Add your first one above.
-                    </p>
-                  </div>
-                ) : (
-                  <DataTable columns={columns} data={notes} />
-                )}
-              </CardContent>
-            </Card>
-          </Reveal>
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
-  );
-}
-
-function AppSidebar() {
-  return (
-    <Sidebar>
-      <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <Sparkles className="size-4" />
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold">Starter</span>
-            <span className="text-xs text-muted-foreground">Workspace</span>
-          </div>
-        </div>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive>
-                  <NotebookPen />
-                  <span>Notes</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+          </CardHeader>
+        </Card>
+      </Reveal>
+    </main>
   );
 }

@@ -3,7 +3,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { fetchAppName } from "./lib/api";
+import { apiClient } from "./lib/api";
 import { queryClient } from "./query-client";
 import { routeTree } from "./routeTree.gen";
 import "./styles.css";
@@ -13,11 +13,15 @@ import "./styles.css";
 // set it here at the composition root rather than from inside React — no
 // `useEffect`, and it doesn't block first paint. If the fetch fails, the static
 // title in `index.html` stays.
-void fetchAppName()
-  .then((appName) => {
+const setTabTitle = async (): Promise<void> => {
+  const res = await apiClient.config.$get();
+  if (res.ok) {
+    const { appName } = await res.json();
     document.title = appName;
-  })
-  .catch(() => {});
+  }
+};
+
+void setTabTitle().catch(() => {});
 
 const router = createRouter({ routeTree });
 

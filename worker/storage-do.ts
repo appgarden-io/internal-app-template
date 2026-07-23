@@ -1,7 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-// <example:notes>
-import { eq } from "drizzle-orm";
-// </example:notes>
+import { sql } from "drizzle-orm";
 import {
   type DrizzleSqliteDODatabase,
   drizzle,
@@ -9,9 +7,6 @@ import {
 import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import migrations from "../drizzle/migrations";
 import * as schema from "./schema";
-// <example:notes>
-import { type Note, notes } from "./schema";
-// </example:notes>
 
 /**
  * The generic SQLite-backed storage Durable Object for apps built from this
@@ -21,8 +16,10 @@ import { type Note, notes } from "./schema";
  *
  * Data access goes through Drizzle ORM (`worker/schema.ts` defines the tables;
  * `drizzle/` holds the generated migration journal). Implement your app's
- * `AppStorage` methods here. The class name stays generic so the Durable
- * Object never needs renaming (which would force a Cloudflare migration).
+ * `AppStorage` methods here — write the query directly in the method (see
+ * `.claude/skills/template-patterns/references/storage.md`). The class name
+ * stays generic so the Durable Object never needs renaming (which would force
+ * a Cloudflare migration).
  */
 export class StorageDurableObject extends DurableObject {
   private readonly db: DrizzleSqliteDODatabase<typeof schema>;
@@ -39,36 +36,12 @@ export class StorageDurableObject extends DurableObject {
     });
   }
 
-  // <example:notes>
-  // The note methods are the example feature built on this storage primitive —
-  // `npm run reset-example` removes them. Implement your real methods the same
-  // way.
-  listNotes(): Promise<Note[]> {
-    return this.db.query.notes.findMany({
-      orderBy: (note, { desc }) => [desc(note.id)],
-    });
+  // The minimal worked example of an `AppStorage` method — implement your real
+  // methods the same way, beside it.
+  async checkHealth(): Promise<{ status: "ok" }> {
+    // A real query (not a static value): a green result proves SQLite is
+    // reachable and the constructor's migrations completed.
+    await this.db.run(sql`select 1`);
+    return { status: "ok" };
   }
-
-  async addNote(text: string): Promise<Note> {
-    const [note] = await this.db
-      .insert(notes)
-      .values({ text, createdAt: Date.now() })
-      .returning();
-
-    if (!note) {
-      throw new Error("Failed to insert note");
-    }
-
-    return note;
-  }
-
-  async deleteNote(id: number): Promise<boolean> {
-    const deleted = await this.db
-      .delete(notes)
-      .where(eq(notes.id, id))
-      .returning({ id: notes.id });
-
-    return deleted.length > 0;
-  }
-  // </example:notes>
 }
