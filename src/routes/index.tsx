@@ -1,3 +1,10 @@
+// <example:notes file>
+// This whole home page is the notes example — a working demo of the template's
+// patterns: route loader → typed client, TanStack Table columns, sidebar
+// layout, and <Reveal> entrance motion. Build the real app's pages the same
+// way. While this marker line is present, `npm run reset-example` replaces the
+// file with a blank starting page; once you rewrite this page for the real
+// app, delete the marker comment block.
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Loader2, NotebookPen, Plus, Sparkles, Trash2 } from "lucide-react";
@@ -20,7 +27,11 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { createNote, deleteNote, fetchNotes, type Note } from "@/lib/api";
+import { createNote, deleteNote, fetchNotes } from "@/lib/api";
+// The row type comes straight from the Drizzle schema — the single source of
+// truth shared with the Worker (see AGENTS.md: import row types, don't
+// redefine them).
+import type { Note } from "../../worker/schema";
 
 export const Route = createFileRoute("/")({
   loader: () => fetchNotes(),

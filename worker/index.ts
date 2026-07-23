@@ -1,9 +1,5 @@
 import { Hono } from "hono";
-import {
-  type ApiEnv,
-  apiRoutes,
-  type NotesStorage,
-} from "../src/lib/api-routes";
+import { type ApiEnv, type AppStorage, apiRoutes } from "../src/lib/api-routes";
 import { slugToAppName } from "../src/lib/app-name";
 import { createAiRunner } from "./ai-runner";
 import { createFileStore } from "./file-store";
@@ -24,13 +20,13 @@ export interface Env {
   APP_SLUG: string;
 }
 
-// A single, shared Durable Object instance backs the demo. Real apps would key
-// the instance by tenant, user, or resource id.
+// A single, shared Durable Object instance backs the app. Key the instance by
+// tenant, user, or resource id instead if the app needs more than one.
 const STORAGE_SINGLETON = "default";
 
-// The DO stub already implements `NotesStorage` (same method names + signatures
+// The DO stub already implements `AppStorage` (same method names + signatures
 // as `worker/storage-do.ts`), so this is the concrete side of the storage seam.
-const getStorage = (env: Env): NotesStorage =>
+const getStorage = (env: Env): AppStorage =>
   env.STORAGE.get(env.STORAGE.idFromName(STORAGE_SINGLETON));
 
 const api = new Hono<{ Bindings: Env } & ApiEnv>()

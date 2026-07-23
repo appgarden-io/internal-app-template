@@ -12,6 +12,7 @@
     "format": "biome format --write .",
     "cf-typegen": "wrangler types --include-runtime=false ./worker/worker-configuration.d.ts",
     "db:generate": "drizzle-kit generate",
+    "reset-example": "node scripts/reset-example.mjs",
     "prepare": "husky"
   },
   "dependencies": {

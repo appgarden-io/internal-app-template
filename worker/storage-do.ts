@@ -1,5 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
+// <example:notes>
 import { eq } from "drizzle-orm";
+// </example:notes>
 import {
   type DrizzleSqliteDODatabase,
   drizzle,
@@ -7,7 +9,9 @@ import {
 import { migrate } from "drizzle-orm/durable-sqlite/migrator";
 import migrations from "../drizzle/migrations";
 import * as schema from "./schema";
+// <example:notes>
 import { type Note, notes } from "./schema";
+// </example:notes>
 
 /**
  * The generic SQLite-backed storage Durable Object for apps built from this
@@ -16,11 +20,9 @@ import { type Note, notes } from "./schema";
  * `new_sqlite_classes` migration.
  *
  * Data access goes through Drizzle ORM (`worker/schema.ts` defines the tables;
- * `drizzle/` holds the generated migration journal). The note methods below are
- * an example feature built on top of this storage primitive — replace them with
- * your own. The class name stays generic so you never have to rename the
- * Durable Object (which would force a Cloudflare migration) when the app stops
- * being about notes.
+ * `drizzle/` holds the generated migration journal). Implement your app's
+ * `AppStorage` methods here. The class name stays generic so the Durable
+ * Object never needs renaming (which would force a Cloudflare migration).
  */
 export class StorageDurableObject extends DurableObject {
   private readonly db: DrizzleSqliteDODatabase<typeof schema>;
@@ -37,6 +39,10 @@ export class StorageDurableObject extends DurableObject {
     });
   }
 
+  // <example:notes>
+  // The note methods are the example feature built on this storage primitive —
+  // `npm run reset-example` removes them. Implement your real methods the same
+  // way.
   listNotes(): Promise<Note[]> {
     return this.db.query.notes.findMany({
       orderBy: (note, { desc }) => [desc(note.id)],
@@ -64,4 +70,5 @@ export class StorageDurableObject extends DurableObject {
 
     return deleted.length > 0;
   }
+  // </example:notes>
 }

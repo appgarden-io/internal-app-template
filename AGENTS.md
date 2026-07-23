@@ -37,9 +37,9 @@ wrong place. There is no `npm run deploy`.
 - **Types**: never use `as` or `unknown` to force types to line up — derive them from their source.
   Responses come typed from `apiClient`; validate request bodies with `zod` (`safeParse`), which
   returns a typed value. Reaching for a cast is a signal the type isn't being derived correctly.
-- **Storage seam**: routes depend on the `NotesStorage` interface (`src/lib/api-routes.ts`), never
+- **Storage seam**: routes depend on the `AppStorage` interface (`src/lib/api-routes.ts`), never
   on the Durable Object directly — that's what keeps the routes Worker-free so the SPA can import
-  their types. To add storage-backed routes, extend `NotesStorage` and implement it on the DO
+  their types. To add storage-backed routes, extend `AppStorage` and implement it on the DO
   (`worker/storage-do.ts`); `worker/index.ts` injects the real stub.
 - **AI**: call Workers AI through the `AiRunner` seam (`c.var.ai`), never `env.AI` directly in a
   route — the adapter (`worker/ai-runner.ts`) routes every call through AI Gateway. Workers AI has
@@ -79,6 +79,32 @@ wrong place. There is no `npm run deploy`.
 - **React** write modern React code that a senior developer would write. Avoid using useEffect. Break very large components into smaller ones.
 - **Mobile Responsive** Make the app mobile responsive
 - **Links not buttons for navigation** Always use a link button when a button purely navigates to a page
+
+## First customisation — removing the notes example
+
+The template ships with a working **notes** example. It exists to teach the template's patterns —
+the storage seam, typed routes, the typed client, the table/loader UI — so **don't delete it by
+hand**. Every line of example-specific code is fenced with `// <example:notes>` …
+`// </example:notes>` markers (and `src/routes/index.tsx` carries a whole-file marker); everything
+outside the markers is reusable infrastructure the real app keeps.
+
+The intended first-build sequence:
+
+```
+1. read the example        ── learn the patterns it demonstrates
+2. build the REAL feature  ── alongside the example, following those patterns
+                              (don't run db:generate yet)
+3. npm run reset-example   ── strips the marked example code, replaces the
+                              example home page if it was never rewritten, and
+                              regenerates drizzle/ as a clean first migration
+4. typecheck + lint pass   ── the script runs typecheck; fix anything it reports
+```
+
+`npm run reset-example` is **safe only before the app's first deploy** — it rewrites migration
+history, which the rules below forbid once anything is live. It refuses to run until
+`worker/schema.ts` has at least one real table (`--force` overrides for a database-free app), and
+it never touches `drizzle/` once the placeholder migration is gone. After the first deploy, schema
+changes go through `npm run db:generate` under the rules below — never through this script.
 
 ## Changing the database schema — avoid data loss
 

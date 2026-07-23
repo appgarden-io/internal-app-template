@@ -155,9 +155,11 @@ real account, even in dev).
 
 `worker/storage-do.ts` is a SQLite Durable Object that accesses its database
 through **Drizzle ORM**. The Hono routes (`GET/POST /api/notes`, `DELETE /api/notes/:id`)
-reach it through the `NotesStorage` seam: they depend on that interface, and `worker/index.ts`
+reach it through the `AppStorage` seam: they depend on that interface, and `worker/index.ts`
 injects the DO stub. This keeps the routes Worker-free so the SPA can import their types. The
-`notes` table is a **placeholder** — replace it with your app's real data model.
+`notes` table is a **placeholder** — build your app's real data model alongside it, then run
+`npm run reset-example` to strip the example in one shot (see *First customisation* in
+`AGENTS.md`).
 
 ```
 worker/schema.ts   the tables (single source of the row types) ── edit this
