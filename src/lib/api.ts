@@ -1,11 +1,14 @@
 import { hc } from "hono/client";
+// <example:notes>
 // The row type comes from the Drizzle schema (`worker/schema.ts`) — the single
 // source of truth shared with the Worker. `import type` is erased at build, so
-// no Worker code is pulled into the client bundle.
+// no Worker code is pulled into the client bundle. Import your real row types
+// the same way.
 import type { Note } from "../../worker/schema";
+// </example:notes>
 import type { ApiRoutes, StoredFile } from "./api-routes";
 
-export type { Note, StoredFile };
+export type { StoredFile };
 
 // Typed against the full route surface (`ApiRoutes`), so every request,
 // response, and path param below is checked end-to-end — no `fetch`, no casts.
@@ -23,6 +26,7 @@ export const fetchAppName = async (): Promise<string> => {
   return appName;
 };
 
+// <example:notes>
 export const fetchNotes = async (): Promise<Note[]> => {
   const res = await apiClient.notes.$get();
   if (!res.ok) {
@@ -53,6 +57,7 @@ export const deleteNote = async (id: number): Promise<void> => {
     throw new Error(`Failed to delete note (${res.status})`);
   }
 };
+// </example:notes>
 
 // --- AI: text generation through AI Gateway ---
 

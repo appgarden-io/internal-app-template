@@ -1,9 +1,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
+// <example:notes>
 // The row type comes from the Drizzle schema (`worker/schema.ts`) — the single
 // source of truth shared with the Worker. `import type` is erased at build, so
-// no Worker code is pulled into the client bundle.
+// no Worker code is pulled into the client bundle. Import your real row types
+// the same way.
 import type { Note } from "../../worker/schema";
+// </example:notes>
 
 export interface ApiExampleResponse {
   message: string;
@@ -17,15 +20,22 @@ export interface ApiExampleResponse {
  * routes Worker-free is what lets the SPA import their *types* (`ApiRoutes`,
  * below) for an end-to-end typed client without pulling Cloudflare runtime
  * types into the browser bundle.
+ *
+ * Add your app's real storage methods here (and implement them on the Durable
+ * Object in `worker/storage-do.ts`).
  */
-export interface NotesStorage {
+export interface AppStorage {
+  // <example:notes>
+  // The notes methods are the placeholder example — `npm run reset-example`
+  // removes them.
   listNotes(): Promise<Note[]>;
   addNote(text: string): Promise<Note>;
   deleteNote(id: number): Promise<boolean>;
+  // </example:notes>
 }
 
 /**
- * AI seam (Workers AI via AI Gateway). Same idea as `NotesStorage`: the routes
+ * AI seam (Workers AI via AI Gateway). Same idea as `AppStorage`: the routes
  * depend on this plain interface, never on the Cloudflare `Ai` binding, so the
  * SPA can still import the route types. The Worker injects the real adapter
  * (`worker/ai-runner.ts`), which routes the call through the AI Gateway.
@@ -65,7 +75,7 @@ export interface FileStore {
 /** Hono environment for the routes: the seams the Worker injects per request. */
 export type ApiEnv = {
   Variables: {
-    storage: NotesStorage;
+    storage: AppStorage;
     ai: AiRunner;
     files: FileStore;
     // This App's human-readable name (derived from its slug). Injected as a
@@ -74,7 +84,9 @@ export type ApiEnv = {
   };
 };
 
+// <example:notes>
 const createNoteSchema = z.object({ text: z.string().trim().min(1) });
+// </example:notes>
 const generateTextSchema = z.object({ prompt: z.string().trim().min(1) });
 
 export const apiRoutes = new Hono<ApiEnv>()
@@ -90,6 +102,7 @@ export const apiRoutes = new Hono<ApiEnv>()
   // App config for the SPA. Currently just the human-readable name (used for
   // the browser tab title); extend with other boot-time, server-known values.
   .get("/config", (c) => c.json({ appName: c.var.appName }))
+  // <example:notes>
   .get("/notes", async (c) => {
     const notes = await c.var.storage.listNotes();
     return c.json({ notes });
@@ -119,6 +132,7 @@ export const apiRoutes = new Hono<ApiEnv>()
     const deleted = await c.var.storage.deleteNote(id);
     return deleted ? c.body(null, 204) : c.json({ error: "not found" }, 404);
   })
+  // </example:notes>
   // --- AI: text generation through AI Gateway (example) ---
   .post("/ai/generate", async (c) => {
     const parsed = generateTextSchema.safeParse(
