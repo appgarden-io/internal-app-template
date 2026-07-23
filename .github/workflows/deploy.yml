@@ -56,6 +56,3 @@ jobs:
           echo "DEPLOY_OIDC_TOKEN=$token" >> "$GITHUB_ENV"
       - name: Deploy through the AppGarden gateway
         run: node scripts/deploy-bundle.mjs
-      - name: Summarise the live URL
-        run: |
-          echo "### Live: https://${{ github.event.repository.name }}.${{ vars.APPGARDEN_APPS_DOMAIN }}" >> "$GITHUB_STEP_SUMMARY"

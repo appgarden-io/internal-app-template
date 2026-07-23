@@ -108,9 +108,9 @@ normal Worker config used for local dev only; the gateway resolves the script na
 name), the namespace, and every binding server-side — the same template deploys into any Client's
 Workers-for-Platforms namespace, and there is no secret in the org to leak or rotate.
 
-> **Operator setup (once per GitHub org).** Only one Actions var is read:
-> `APPGARDEN_APPS_DOMAIN` (for the live-URL summary line). Deploy authentication is the
-> workflow-minted OIDC token — no Cloudflare secrets in the org.
+> **Operator setup: none.** The workflow reads no org-level Actions configuration — no
+> variables, no secrets. Deploy authentication is the workflow-minted OIDC token, so the
+> GitHub org needs nothing beyond the repo itself.
 
 ## API examples
 
