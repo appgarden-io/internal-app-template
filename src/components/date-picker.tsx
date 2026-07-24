@@ -29,8 +29,12 @@ import { cn } from "@/lib/utils";
 interface DatePickerProps {
   /** The currently selected date, or `undefined` when nothing is chosen. */
   value?: Date;
-  /** Called with the new date, or `undefined` when the selection is cleared. */
-  onChange?: (date: Date | undefined) => void;
+  /**
+   * Called with the new date, or `undefined` when the selection is cleared.
+   * Required: this is a controlled component, so a picker without a handler
+   * would silently drop every selection.
+   */
+  onChange: (date: Date | undefined) => void;
   /** Label shown on the trigger while no date is selected. */
   placeholder?: string;
   /** `date-fns` format string for the selected date. Defaults to `"PPP"`. */
@@ -78,7 +82,7 @@ export function DatePicker({
           mode="single"
           selected={value}
           onSelect={(date) => {
-            onChange?.(date);
+            onChange(date);
             setOpen(false);
           }}
           autoFocus
