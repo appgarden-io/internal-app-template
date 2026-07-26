@@ -13,6 +13,7 @@
     "cf-typegen": "wrangler types --include-runtime=false ./worker/worker-configuration.d.ts",
     "db:generate": "drizzle-kit generate",
     "check:sizes": "node scripts/check-file-sizes.mjs",
+    "check:bindings": "node scripts/check-bindings.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
     "prepare": "husky"
   },

@@ -43,6 +43,11 @@ jobs:
       # deterministic and cheap, so CI re-runs it even if a commit bypassed the
       # husky pre-commit (`--no-verify`, or a clone without the hooks installed).
       - run: npm run check:sizes
+      # A new Cloudflare binding builds and typechecks fine and is `undefined`
+      # in production — the gateway stamps bindings itself. This is the last
+      # gate before the bundle ships, and it must run in CI too: a commit can
+      # bypass the husky hook with `--no-verify`.
+      - run: npm run check:bindings
       # Minted straight from the runner's token endpoint (no third-party
       # action), masked, and handed to the deploy script as env.
       - name: Mint the deploy OIDC token

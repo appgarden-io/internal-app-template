@@ -35,7 +35,59 @@
       // rewrite nested ternaries as early returns, and split any function past
       // cognitive-complexity 15 (Biome's own default) into smaller pieces.
       "style": {
-        "noNestedTernary": "error"
+        "noNestedTernary": "error",
+        // The Cloudflare binding types this App can never have. Bindings in
+        // wrangler.jsonc configure LOCAL DEV ONLY — the deploy gateway stamps
+        // production bindings itself — so a new one typechecks, builds, passes
+        // CI, and is `undefined` in production. Banning the types puts the
+        // error on the line that adds it. `scripts/check-bindings.mjs` covers
+        // the config side and fails closed on types newer than this list.
+        "noRestrictedTypes": {
+          "level": "error",
+          "options": {
+            "types": {
+              "KVNamespace": {
+                "message": "KV is not available to AppGarden Apps. It works in `npm run dev` and is undefined in production. Use the STORAGE Durable Object, or ask AppGarden (`ask-appgarden-a-question`) before building on it."
+              },
+              "D1Database": {
+                "message": "D1 is not available to AppGarden Apps. It works in `npm run dev` and is undefined in production. Use the STORAGE Durable Object (SQLite) instead."
+              },
+              "Queue": {
+                "message": "Queues are not available to AppGarden Apps. This works in `npm run dev` and is undefined in production. Ask AppGarden (`ask-appgarden-a-question`) before building on it."
+              },
+              "Hyperdrive": {
+                "message": "Hyperdrive is not available to AppGarden Apps. This works in `npm run dev` and is undefined in production. Ask AppGarden (`ask-appgarden-a-question`) before building on it."
+              },
+              "Vectorize": {
+                "message": "Vectorize is not available to AppGarden Apps. This works in `npm run dev` and is undefined in production. Ask AppGarden (`ask-appgarden-a-question`) before building on it."
+              },
+              "VectorizeIndex": {
+                "message": "Vectorize is not available to AppGarden Apps. This works in `npm run dev` and is undefined in production. Ask AppGarden (`ask-appgarden-a-question`) before building on it."
+              },
+              "AnalyticsEngineDataset": {
+                "message": "Analytics Engine is not available to AppGarden Apps. This works in `npm run dev` and is undefined in production. Ask AppGarden (`ask-appgarden-a-question`) before building on it."
+              },
+              "DispatchNamespace": {
+                "message": "Dispatch namespaces are not available to AppGarden Apps — the gateway owns dispatch. Ask AppGarden (`ask-appgarden-a-question`)."
+              },
+              "SendEmail": {
+                "message": "Email sending is not available to AppGarden Apps. This works in `npm run dev` and is undefined in production. Ask AppGarden (`ask-appgarden-a-question`) before building on it."
+              },
+              "RateLimit": {
+                "message": "Rate-limit bindings are not available to AppGarden Apps. This works in `npm run dev` and is undefined in production. Ask AppGarden (`ask-appgarden-a-question`)."
+              },
+              "Workflow": {
+                "message": "Workflows are not available to AppGarden Apps. This works in `npm run dev` and is undefined in production. Ask AppGarden (`ask-appgarden-a-question`) before building on it."
+              },
+              "ImagesBinding": {
+                "message": "The Images binding is not available to AppGarden Apps. This works in `npm run dev` and is undefined in production. Ask AppGarden (`ask-appgarden-a-question`)."
+              },
+              "SecretsStoreSecret": {
+                "message": "Secrets Store is not available to AppGarden Apps. This works in `npm run dev` and is undefined in production. Ask AppGarden (`ask-appgarden-a-question`)."
+              }
+            }
+          }
+        }
       },
       "complexity": {
         "noExcessiveCognitiveComplexity": {

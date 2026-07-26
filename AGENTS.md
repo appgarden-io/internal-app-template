@@ -67,7 +67,12 @@ example, and the reasons.
   (the repo name), and `ASSETS` (the built SPA). Three consequences:
   - **Adding a new binding here (KV, D1, queues, …) will work in `npm run dev` and silently NOT
     exist once deployed** — the code will break in production only. If a feature needs a new kind
-    of resource, ask AppGarden first instead of building on it or find an alternative way to ship a feature with the included resources
+    of resource, ask AppGarden first instead of building on it or find an alternative way to ship a feature with the included resources.
+    Two guards enforce this, at pre-commit and again in CI: `npm run check:bindings`
+    (`scripts/check-bindings.mjs`) allowlists `wrangler.jsonc`'s keys, binding names and `vars`,
+    and re-checks `interface Env`; `style/noRestrictedTypes` in `biome.jsonc` bans the binding
+    types by name. **Do not delete or weaken either one to get past a failure** — there is no
+    configuration that makes a new binding reach production.
   - **Never rename or remove `StorageDurableObject` or its export** in `worker/index.ts` — the
     deploy fails (the platform binds that exact class).
   - **Treat `migrations` in `wrangler.jsonc` as append-only history** — the platform deploys only
