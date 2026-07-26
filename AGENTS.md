@@ -37,8 +37,7 @@ wrong place. There is no `npm run deploy`.
 
 Each rule is one line here; its reference file under
 `.claude/skills/template-patterns/references/` has the pattern, a worked
-example, and the reasons. **When you change a seam or infrastructure file,
-update its reference file in the same commit.**
+example, and the reasons. 
 
 - **API**: define routes in `src/lib/api-routes.ts` (typed Hono chain), validate bodies with zod
   `safeParse`, no `as`/`unknown` casts → `references/api-routes.md`.
@@ -68,7 +67,7 @@ update its reference file in the same commit.**
   (the repo name), and `ASSETS` (the built SPA). Three consequences:
   - **Adding a new binding here (KV, D1, queues, …) will work in `npm run dev` and silently NOT
     exist once deployed** — the code will break in production only. If a feature needs a new kind
-    of resource, ask AppGarden first instead of building on it.
+    of resource, ask AppGarden first instead of building on it or find an alternative way to ship a feature with the included resources
   - **Never rename or remove `StorageDurableObject` or its export** in `worker/index.ts` — the
     deploy fails (the platform binds that exact class).
   - **Treat `migrations` in `wrangler.jsonc` as append-only history** — the platform deploys only
