@@ -18,6 +18,14 @@ Key facts:
 - Keys are single path segments (the `/api/files/:key` routes match one
   segment); switch `:key` to a wildcard param if you need nested keys like
   `avatars/u1.png`.
+- **A key must not contain `/`, `?`, `#`, `%` or `\`, and cannot be `.` or
+  `..`.** The typed client does not URL-encode path params, so a key containing
+  one of those uploads fine, appears in `list()`, and is then permanently
+  unreachable *and* undeletable — an orphan in the bucket. `uploadFileSchema`
+  rejects them at the door. (`%` is in the list because `%XX` is *decoded* on
+  the way back: a key `a%2Fb.txt` looks up `a/b.txt` and misses.) Spaces,
+  accents and emoji round-trip fine — don't tighten this into a whitelist. If
+  you switch `:key` to a wildcard, `/` becomes legal; the others do not.
 
 ## Worked example
 
@@ -26,23 +34,39 @@ Upload stays inside the typed client by using multipart form data (no raw
 
 ```ts
 // src/lib/api-routes.ts
-.post("/files", async (c) => {
-  // Multipart upload keeps this within the typed client (no raw `fetch`).
-  // The file's name becomes its key.
-  const body = await c.req.parseBody();
-  const file = body.file;
+// These break the `/api/files/:key` round trip — verified against the running
+// Worker. `%` is included because `%XX` decodes on the way back.
+const UNSAFE_KEY_CHARS = /[/?#%\\]/;
 
-  if (!(file instanceof File) || file.name.length === 0) {
-    return c.json({ error: "file is required" }, 400);
-  }
+const isUsableAsKey = (name: string) =>
+  name.length > 0 &&
+  name !== "." &&
+  name !== ".." &&
+  !UNSAFE_KEY_CHARS.test(name);
 
-  const stored = await c.var.files.put(
-    file.name,
-    await file.arrayBuffer(),
-    file.type || undefined,
-  );
-  return c.json({ file: stored }, 201);
-})
+const uploadFileSchema = z.object({
+  file: z.instanceof(File).refine((file) => isUsableAsKey(file.name)),
+});
+
+.post(
+  "/files",
+  // Validated at the door, so the client requires `{ form: { file: File } }`
+  // — see `api-routes.md`. The file's name becomes its key.
+  zValidator("form", uploadFileSchema, (result, c) => {
+    if (!result.success) {
+      return c.json({ error: "file is required" }, 400);
+    }
+  }),
+  async (c) => {
+    const { file } = c.req.valid("form");
+    const stored = await c.var.files.put(
+      file.name,
+      await file.arrayBuffer(),
+      file.type || undefined,
+    );
+    return c.json({ file: stored }, 201);
+  },
+)
 ```
 
 Note the trade-off this example makes: the client-supplied `file.name` is the

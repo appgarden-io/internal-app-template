@@ -115,8 +115,10 @@ Workers-for-Platforms namespace, and there is no secret in the org to leak or ro
 ## The API pattern
 
 `src/lib/api-routes.ts` defines the typed Hono routes; `src/lib/api.ts` creates the matching
-Hono `hc` client (`apiClient`), the only way the SPA talks to the API. Request, response, and
-path-param types flow from the route definitions to the client with no casts.
+Hono `hc` client (`apiClient`), the only way the SPA talks to the API. Request-body, response,
+and path-param types flow from the route definitions to the client with no casts — request
+bodies are typed because each route declares its body with a `validator`, so sending the wrong
+shape is a compile error rather than a runtime 400.
 
 The minimal worked example is the health check: `GET /api/health` threads
 route → `AppStorage` interface → `StorageDurableObject`, and the home page

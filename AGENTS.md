@@ -39,8 +39,10 @@ Each rule is one line here; its reference file under
 `.claude/skills/template-patterns/references/` has the pattern, a worked
 example, and the reasons. 
 
-- **API**: define routes in `src/lib/api-routes.ts` (typed Hono chain), validate bodies with zod
-  `safeParse`, no `as`/`unknown` casts → `references/api-routes.md`.
+- **API**: define routes in `src/lib/api-routes.ts` (typed Hono chain); validate bodies with
+  `zValidator` (`@hono/zod-validator`) at the door, not inside the handler, or the client can't
+  send a body — always pass its error hook — give every response an explicit status, no
+  `as`/`unknown` casts → `references/api-routes.md`.
 - **Client**: the SPA talks to the API only through the typed `apiClient` (`src/lib/api.ts`),
   called directly in `queryFn`/loader — never raw `fetch`, no per-endpoint wrappers →
   `references/client-ui.md`.

@@ -45,18 +45,21 @@ The route consuming the seam:
 // src/lib/api-routes.ts
 const generateTextSchema = z.object({ prompt: z.string().trim().min(1) });
 
-.post("/ai/generate", async (c) => {
-  const parsed = generateTextSchema.safeParse(
-    await c.req.json().catch(() => null),
-  );
-
-  if (!parsed.success) {
-    return c.json({ error: "prompt is required" }, 400);
-  }
-
-  const text = await c.var.ai.generateText(parsed.data.prompt);
-  return c.json({ text });
-})
+.post(
+  "/ai/generate",
+  // Validated at the door, so `{ prompt: string }` is part of the route's type
+  // and `apiClient.ai.generate.$post` requires it — see `api-routes.md`.
+  zValidator("json", generateTextSchema, (result, c) => {
+    if (!result.success) {
+      return c.json({ error: "prompt is required" }, 400);
+    }
+  }),
+  async (c) => {
+    const { prompt } = c.req.valid("json");
+    const text = await c.var.ai.generateText(prompt);
+    return c.json({ text }, 200);
+  },
+)
 ```
 
 ## Local dev caveat — AI calls throw offline
