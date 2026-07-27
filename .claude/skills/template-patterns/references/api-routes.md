@@ -14,18 +14,20 @@ Four rules keep that guarantee intact:
   breaking it into separate `app.get(...)` statements silently contributes zero
   routes to the client type. (Composing sub-apps with `.route()` *does* preserve
   it; loose statements do not.)
-- **Validate at the door, not inside the handler.** Wrap the body in a
-  `validator` from `hono/validator` — it ships inside Hono, no extra dependency.
-  This is what puts the request body into the route's type. A handler that
-  instead calls `safeParse` on `await c.req.json()` validates correctly at
-  runtime but declares *no* input, so the client can neither check a body nor
-  send one — and a route with both a path param and a body becomes impossible
-  to call.
+- **Validate at the door, not inside the handler.** Declare the body with
+  `zValidator` from `@hono/zod-validator`. This is what puts the request body
+  into the route's type. A handler that instead calls `safeParse` on
+  `await c.req.json()` validates correctly at runtime but declares *no* input,
+  so the client can neither check a body nor send one — and a route with both a
+  path param and a body becomes impossible to call.
+  **Always pass the third argument** (the error hook). Without it, the client's
+  400 branch is zod's raw `ZodSafeParseError` instead of the `{ error }` shape
+  every other response in this file uses.
 - **Give every response an explicit status.** `c.json(x)` without one widens to
   the whole success union, so callers can't narrow a 200 apart from a 400.
-- **No `as`, no `unknown`.** `safeParse` still *returns* a typed value instead
-  of asserting one — the validator wraps it, it doesn't replace it. Reaching for
-  a cast means the type isn't being derived from its source.
+- **No `as`, no `unknown`.** `zValidator` runs zod's `safeParse` under the hood,
+  which *returns* a typed value instead of asserting one. Reaching for a cast
+  means the type isn't being derived from its source.
 
 A body Hono can't parse at all is rejected before any validator runs, and its
 built-in reply is plain text. The `.onError` at the top of the chain converts
@@ -52,14 +54,10 @@ export const apiRoutes = new Hono<ApiEnv>()
   })
   .post(
     "/notes",
-    validator("json", (value, c) => {
-      const parsed = createNoteSchema.safeParse(value);
-
-      if (!parsed.success) {
+    zValidator("json", createNoteSchema, (result, c) => {
+      if (!result.success) {
         return c.json({ error: "text is required" }, 400);
       }
-
-      return parsed.data;
     }),
     async (c) => {
       const note = await c.var.storage.addNote(c.req.valid("json").text);
@@ -67,19 +65,15 @@ export const apiRoutes = new Hono<ApiEnv>()
     },
   )
   // A path param AND a body — the shape of every edit screen. This works only
-  // because the body is declared by a `validator`. Without one, the client's
+  // because the body is declared by a `zValidator`. Without one, the client's
   // input type is just `{ param: { id: string } }` and there is nowhere to put
   // the body: `$patch({ param, json })` fails with "'json' does not exist".
   .patch(
     "/notes/:id",
-    validator("json", (value, c) => {
-      const parsed = updateNoteSchema.safeParse(value);
-
-      if (!parsed.success) {
+    zValidator("json", updateNoteSchema, (result, c) => {
+      if (!result.success) {
         return c.json({ error: "text is required" }, 400);
       }
-
-      return parsed.data;
     }),
     async (c) => {
       const id = Number(c.req.param("id"));

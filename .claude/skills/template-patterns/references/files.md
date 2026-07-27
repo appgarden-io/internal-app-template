@@ -26,18 +26,18 @@ Upload stays inside the typed client by using multipart form data (no raw
 
 ```ts
 // src/lib/api-routes.ts
+const uploadFileSchema = z.object({
+  file: z.instanceof(File).refine((file) => file.name.length > 0),
+});
+
 .post(
   "/files",
   // Validated at the door, so the client requires `{ form: { file: File } }`
   // — see `api-routes.md`. The file's name becomes its key.
-  validator("form", (value, c) => {
-    const file = value.file;
-
-    if (!(file instanceof File) || file.name.length === 0) {
+  zValidator("form", uploadFileSchema, (result, c) => {
+    if (!result.success) {
       return c.json({ error: "file is required" }, 400);
     }
-
-    return { file };
   }),
   async (c) => {
     const { file } = c.req.valid("form");

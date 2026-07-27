@@ -1,6 +1,6 @@
+import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { validator } from "hono/validator";
 import { z } from "zod";
 
 /**
@@ -73,6 +73,10 @@ export type ApiEnv = {
 
 const generateTextSchema = z.object({ prompt: z.string().trim().min(1) });
 
+const uploadFileSchema = z.object({
+  file: z.instanceof(File).refine((file) => file.name.length > 0),
+});
+
 export const apiRoutes = new Hono<ApiEnv>()
   // A body Hono cannot parse is rejected *before* any `validator` below runs,
   // and Hono's built-in reply for that is plain text. Converting it back here
@@ -98,16 +102,16 @@ export const apiRoutes = new Hono<ApiEnv>()
     // Validating at the door — rather than inside the handler — is what puts
     // the request body into the route's type. `apiClient.ai.generate.$post`
     // now *requires* `{ json: { prompt: string } }` and rejects anything else
-    // at compile time. `safeParse` still returns a typed value, so there is
-    // still no `as` and no `unknown`.
-    validator("json", (value, c) => {
-      const parsed = generateTextSchema.safeParse(value);
-
-      if (!parsed.success) {
+    // at compile time. `zValidator` still runs zod's `safeParse` under the
+    // hood, so there is still no `as` and no `unknown`.
+    //
+    // The third argument is not optional in spirit: without it the client's
+    // 400 branch is zod's raw `ZodSafeParseError` instead of this file's
+    // `{ error }` shape.
+    zValidator("json", generateTextSchema, (result, c) => {
+      if (!result.success) {
         return c.json({ error: "prompt is required" }, 400);
       }
-
-      return parsed.data;
     }),
     async (c) => {
       const { prompt } = c.req.valid("json");
@@ -124,14 +128,10 @@ export const apiRoutes = new Hono<ApiEnv>()
     "/files",
     // Same idea for multipart: the client requires `{ form: { file: File } }`.
     // The file's name becomes its key.
-    validator("form", (value, c) => {
-      const file = value.file;
-
-      if (!(file instanceof File) || file.name.length === 0) {
+    zValidator("form", uploadFileSchema, (result, c) => {
+      if (!result.success) {
         return c.json({ error: "file is required" }, 400);
       }
-
-      return { file };
     }),
     async (c) => {
       const { file } = c.req.valid("form");

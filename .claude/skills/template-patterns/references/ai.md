@@ -49,14 +49,10 @@ const generateTextSchema = z.object({ prompt: z.string().trim().min(1) });
   "/ai/generate",
   // Validated at the door, so `{ prompt: string }` is part of the route's type
   // and `apiClient.ai.generate.$post` requires it — see `api-routes.md`.
-  validator("json", (value, c) => {
-    const parsed = generateTextSchema.safeParse(value);
-
-    if (!parsed.success) {
+  zValidator("json", generateTextSchema, (result, c) => {
+    if (!result.success) {
       return c.json({ error: "prompt is required" }, 400);
     }
-
-    return parsed.data;
   }),
   async (c) => {
     const { prompt } = c.req.valid("json");
