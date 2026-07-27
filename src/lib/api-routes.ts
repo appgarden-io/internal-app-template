@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
+import { validator } from "hono/validator";
 import { z } from "zod";
 
 /**
@@ -72,51 +74,75 @@ export type ApiEnv = {
 const generateTextSchema = z.object({ prompt: z.string().trim().min(1) });
 
 export const apiRoutes = new Hono<ApiEnv>()
+  // A body Hono cannot parse is rejected *before* any `validator` below runs,
+  // and Hono's built-in reply for that is plain text. Converting it back here
+  // keeps every 400 in this file the `{ error }` shape the route types promise,
+  // so `res.json()` is always safe on the error branch.
+  .onError((err, c) => {
+    if (err instanceof HTTPException && err.status === 400) {
+      return c.json({ error: "invalid request body" }, 400);
+    }
+
+    throw err;
+  })
   // Health check — the minimal worked example of the storage seam. It threads
   // route → `AppStorage` → Durable Object, so a green response proves the DO
   // is reachable and its migrations applied.
-  .get("/health", async (c) => c.json(await c.var.storage.checkHealth()))
+  .get("/health", async (c) => c.json(await c.var.storage.checkHealth(), 200))
   // App config for the SPA. Currently just the human-readable name (used for
   // the browser tab title); extend with other boot-time, server-known values.
-  .get("/config", (c) => c.json({ appName: c.var.appName }))
+  .get("/config", (c) => c.json({ appName: c.var.appName }, 200))
   // --- AI: text generation through AI Gateway ---
-  .post("/ai/generate", async (c) => {
-    // `safeParse` yields a typed value with no `as`/`unknown` — the validated
-    // shape, not a cast. `c.req.json()` can reject on a malformed body, so the
-    // `.catch` feeds `null` (which fails validation) into the same 400 path.
-    const parsed = generateTextSchema.safeParse(
-      await c.req.json().catch(() => null),
-    );
+  .post(
+    "/ai/generate",
+    // Validating at the door — rather than inside the handler — is what puts
+    // the request body into the route's type. `apiClient.ai.generate.$post`
+    // now *requires* `{ json: { prompt: string } }` and rejects anything else
+    // at compile time. `safeParse` still returns a typed value, so there is
+    // still no `as` and no `unknown`.
+    validator("json", (value, c) => {
+      const parsed = generateTextSchema.safeParse(value);
 
-    if (!parsed.success) {
-      return c.json({ error: "prompt is required" }, 400);
-    }
+      if (!parsed.success) {
+        return c.json({ error: "prompt is required" }, 400);
+      }
 
-    const text = await c.var.ai.generateText(parsed.data.prompt);
-    return c.json({ text });
-  })
+      return parsed.data;
+    }),
+    async (c) => {
+      const { prompt } = c.req.valid("json");
+      const text = await c.var.ai.generateText(prompt);
+      return c.json({ text }, 200);
+    },
+  )
   // --- Files: R2 object storage ---
   .get("/files", async (c) => {
     const files = await c.var.files.list();
-    return c.json({ files });
+    return c.json({ files }, 200);
   })
-  .post("/files", async (c) => {
-    // Multipart upload keeps this within the typed client (no raw `fetch`). The
-    // file's name becomes its key.
-    const body = await c.req.parseBody();
-    const file = body.file;
+  .post(
+    "/files",
+    // Same idea for multipart: the client requires `{ form: { file: File } }`.
+    // The file's name becomes its key.
+    validator("form", (value, c) => {
+      const file = value.file;
 
-    if (!(file instanceof File) || file.name.length === 0) {
-      return c.json({ error: "file is required" }, 400);
-    }
+      if (!(file instanceof File) || file.name.length === 0) {
+        return c.json({ error: "file is required" }, 400);
+      }
 
-    const stored = await c.var.files.put(
-      file.name,
-      await file.arrayBuffer(),
-      file.type || undefined,
-    );
-    return c.json({ file: stored }, 201);
-  })
+      return { file };
+    }),
+    async (c) => {
+      const { file } = c.req.valid("form");
+      const stored = await c.var.files.put(
+        file.name,
+        await file.arrayBuffer(),
+        file.type || undefined,
+      );
+      return c.json({ file: stored }, 201);
+    },
+  )
   .get("/files/:key", async (c) => {
     const object = await c.var.files.get(c.req.param("key"));
 

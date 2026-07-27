@@ -26,23 +26,29 @@ Upload stays inside the typed client by using multipart form data (no raw
 
 ```ts
 // src/lib/api-routes.ts
-.post("/files", async (c) => {
-  // Multipart upload keeps this within the typed client (no raw `fetch`).
-  // The file's name becomes its key.
-  const body = await c.req.parseBody();
-  const file = body.file;
+.post(
+  "/files",
+  // Validated at the door, so the client requires `{ form: { file: File } }`
+  // — see `api-routes.md`. The file's name becomes its key.
+  validator("form", (value, c) => {
+    const file = value.file;
 
-  if (!(file instanceof File) || file.name.length === 0) {
-    return c.json({ error: "file is required" }, 400);
-  }
+    if (!(file instanceof File) || file.name.length === 0) {
+      return c.json({ error: "file is required" }, 400);
+    }
 
-  const stored = await c.var.files.put(
-    file.name,
-    await file.arrayBuffer(),
-    file.type || undefined,
-  );
-  return c.json({ file: stored }, 201);
-})
+    return { file };
+  }),
+  async (c) => {
+    const { file } = c.req.valid("form");
+    const stored = await c.var.files.put(
+      file.name,
+      await file.arrayBuffer(),
+      file.type || undefined,
+    );
+    return c.json({ file: stored }, 201);
+  },
+)
 ```
 
 Note the trade-off this example makes: the client-supplied `file.name` is the
