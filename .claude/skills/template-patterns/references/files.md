@@ -18,6 +18,14 @@ Key facts:
 - Keys are single path segments (the `/api/files/:key` routes match one
   segment); switch `:key` to a wildcard param if you need nested keys like
   `avatars/u1.png`.
+- **A key must not contain `/`, `?`, `#`, `%` or `\`, and cannot be `.` or
+  `..`.** The typed client does not URL-encode path params, so a key containing
+  one of those uploads fine, appears in `list()`, and is then permanently
+  unreachable *and* undeletable — an orphan in the bucket. `uploadFileSchema`
+  rejects them at the door. (`%` is in the list because `%XX` is *decoded* on
+  the way back: a key `a%2Fb.txt` looks up `a/b.txt` and misses.) Spaces,
+  accents and emoji round-trip fine — don't tighten this into a whitelist. If
+  you switch `:key` to a wildcard, `/` becomes legal; the others do not.
 
 ## Worked example
 
@@ -26,8 +34,18 @@ Upload stays inside the typed client by using multipart form data (no raw
 
 ```ts
 // src/lib/api-routes.ts
+// These break the `/api/files/:key` round trip — verified against the running
+// Worker. `%` is included because `%XX` decodes on the way back.
+const UNSAFE_KEY_CHARS = /[/?#%\\]/;
+
+const isUsableAsKey = (name: string) =>
+  name.length > 0 &&
+  name !== "." &&
+  name !== ".." &&
+  !UNSAFE_KEY_CHARS.test(name);
+
 const uploadFileSchema = z.object({
-  file: z.instanceof(File).refine((file) => file.name.length > 0),
+  file: z.instanceof(File).refine((file) => isUsableAsKey(file.name)),
 });
 
 .post(

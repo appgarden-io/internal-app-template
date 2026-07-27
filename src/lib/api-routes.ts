@@ -73,8 +73,29 @@ export type ApiEnv = {
 
 const generateTextSchema = z.object({ prompt: z.string().trim().min(1) });
 
+// A key has to survive a round trip through `/api/files/:key`, and the typed
+// client does NOT URL-encode path params. A name that fails this uploads fine
+// (201), shows up in `list()`, and is then permanently unreachable AND
+// undeletable — an orphan in the bucket. Verified against the running Worker:
+//
+//   /  ?  #   split the path, query and fragment, so the segment never matches
+//   %         `%XX` is decoded on the way back, so `a%2Fb.txt` looks up `a/b.txt`
+//   \         browsers strip this from a filename before it reaches us; rejected
+//             defensively for non-browser clients
+//   . / ..    resolve away as path segments
+//
+// Spaces, accents and emoji round-trip fine — don't tighten this into a
+// whitelist, it would reject ordinary filenames.
+const UNSAFE_KEY_CHARS = /[/?#%\\]/;
+
+const isUsableAsKey = (name: string) =>
+  name.length > 0 &&
+  name !== "." &&
+  name !== ".." &&
+  !UNSAFE_KEY_CHARS.test(name);
+
 const uploadFileSchema = z.object({
-  file: z.instanceof(File).refine((file) => file.name.length > 0),
+  file: z.instanceof(File).refine((file) => isUsableAsKey(file.name)),
 });
 
 export const apiRoutes = new Hono<ApiEnv>()
@@ -130,7 +151,17 @@ export const apiRoutes = new Hono<ApiEnv>()
     // The file's name becomes its key.
     zValidator("form", uploadFileSchema, (result, c) => {
       if (!result.success) {
-        return c.json({ error: "file is required" }, 400);
+        // `result.data` holds the raw form value, so a rejected-but-present
+        // file gets an honest message instead of "file is required".
+        return c.json(
+          {
+            error:
+              result.data.file instanceof File
+                ? "file name cannot contain / ? # % or \\"
+                : "file is required",
+          },
+          400,
+        );
       }
     }),
     async (c) => {
