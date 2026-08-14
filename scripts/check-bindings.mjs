@@ -3,9 +3,14 @@
 //
 // Bindings in wrangler.jsonc configure LOCAL DEV ONLY. At deploy the AppGarden
 // gateway ignores this file's bindings and gives the Worker exactly ASSETS,
-// STORAGE, AI, BUCKET and APP_SLUG (see AGENTS.md, "Platform contract"). A new
-// binding therefore works perfectly in `npm run dev` and is `undefined` once
-// deployed — the only failure signal arrives in production.
+// STORAGE, AI, BUCKET, APP_SLUG and the APPGARDEN_SECRETS_KEY secret (see
+// AGENTS.md, "Platform contract"). A new binding therefore works perfectly in
+// `npm run dev` and is `undefined` once deployed — the only failure signal
+// arrives in production.
+//
+// APPGARDEN_SECRETS_KEY is the one member of that set with no wrangler.jsonc
+// entry: it is a Worker SECRET, so it is checked on the Env side only and must
+// never appear in `vars`, which is committed. Locally it comes from `.dev.vars`.
 //
 // This guard is an ALLOWLIST, not a denylist: any key, binding name or `vars`
 // entry that is not one of the five known-good ones fails, so a Cloudflare
@@ -44,7 +49,15 @@ const DO_BINDINGS = ["STORAGE"];
 const AI_BINDING = "AI";
 const R2_BINDINGS = ["BUCKET"];
 const VAR_KEYS = ["APP_SLUG"];
-const ENV_KEYS = ["ASSETS", "STORAGE", "AI", "BUCKET", "APP_SLUG"];
+// Env carries one name `vars` deliberately does not: the secrets key (above).
+const ENV_KEYS = [
+  "ASSETS",
+  "STORAGE",
+  "AI",
+  "BUCKET",
+  "APP_SLUG",
+  "APPGARDEN_SECRETS_KEY",
+];
 
 const WHY = `
 Bindings in ${CONFIG} configure LOCAL DEV ONLY. At deploy, the AppGarden
@@ -56,13 +69,19 @@ gateway ignores this file's bindings and gives the App exactly:
   AI          Workers AI
   APP_SLUG    this App's slug
 
+...plus one Worker secret, which is why it has no ${CONFIG} entry:
+
+  APPGARDEN_SECRETS_KEY   reads this Client's uploaded secrets (worker/secrets.ts)
+
 So a new binding works perfectly in \`npm run dev\` and is \`undefined\` once
 deployed. Nothing else fails first: it builds, it typechecks, it passes CI, and
 it breaks only in production.
 
 TO THE AGENT READING THIS: do not delete or weaken this check, and do not add
 the binding to ${ENV_FILE} either. There is no configuration that makes a new
-binding reach production — the gateway decides, not this repo. Build the
+binding reach production — the gateway decides, not this repo. That list grows
+only when the PLATFORM starts stamping something new, and then this guard is
+updated to match; it never grows because an App needed it to. Build the
 feature on STORAGE, BUCKET or AI instead, or use the AppGarden expert skill
 (\`ask-appgarden-a-question\`) to ask the team for the resource first.
 `;

@@ -55,6 +55,10 @@ example, and the reasons.
   in local dev → `references/ai.md`.
 - **Files/R2**: use the `FileStore` seam (`c.var.files`), never `env.BUCKET`; flat keys →
   `references/files.md`.
+- **Secrets / third-party APIs**: read the Client's uploaded credential through the `SecretVault`
+  seam (`await c.var.secrets.getSecret("hubspot")`) — never put a key in this repo, never log one,
+  never return one to the SPA; a human uploads it on the Tools page of their AppGarden home →
+  `references/secrets.md`.
 - **Routes/UI**: file-based routes in `src/routes/`; shadcn/ui + Tailwind; TanStack tables and
   forms; zustand for complex state; avoid `useEffect`; mobile responsive; `<Reveal>` for entrance
   motion; a button that only navigates should be a link → `references/client-ui.md`.
@@ -66,7 +70,9 @@ example, and the reasons.
   deploy via the build output.)
   At deploy the AppGarden gateway ignores this file's bindings and gives the app exactly:
   `BUCKET` (this app's own R2 bucket), `STORAGE` (the `StorageDurableObject`), `AI`, `APP_SLUG`
-  (the repo name), and `ASSETS` (the built SPA). Three consequences:
+  (the repo name), `ASSETS` (the built SPA), and `APPGARDEN_SECRETS_KEY` (a Worker **secret** —
+  so it is the one item with no `wrangler.jsonc` entry, and `npm run dev` reads it from `.dev.vars`;
+  see `references/secrets.md`). Three consequences:
   - **Adding a new binding here (KV, D1, queues, …) will work in `npm run dev` and silently NOT
     exist once deployed** — the code will break in production only. If a feature needs a new kind
     of resource, ask AppGarden first instead of building on it or find an alternative way to ship a feature with the included resources.

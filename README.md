@@ -158,6 +158,29 @@ local credentials. The AI binding is still present, but calling it in local dev 
 `true` in `vite.config.ts` and `wrangler login` (Workers AI then runs against — and bills — your
 real account, even in dev).
 
+## Secrets: calling a third-party service
+
+An App can call HubSpot, Google, Slack, Stripe — anything with an API key or token — without a
+credential ever living in this repo.
+
+Someone on the Client's team creates the credential in that provider's own site, then uploads it
+on the **Tools page of their AppGarden home** under a short name (`hubspot`, `google-sheets`).
+The App reads it by that name at runtime, through the same seam pattern as everything else:
+
+```ts
+// src/lib/api-routes.ts — inside a route handler
+const token = await c.var.secrets.getSecret("hubspot");
+```
+
+The adapter (`worker/secrets.ts`) fetches it from the AppGarden vault over HTTPS, authenticated
+with `APPGARDEN_SECRETS_KEY` — a Worker secret the deploy gateway stamps in at every deploy, so
+it is the one platform value with no `wrangler.jsonc` entry. **Never log a secret, never store
+one, and never return one to the SPA**; read it inside the handler and use it there.
+
+For `npm run dev`, put the key in `.dev.vars` (gitignored) — note that this reads the Client's
+*real* secrets from the live vault. Full pattern, failure messages, and rules:
+`.claude/skills/template-patterns/references/secrets.md`.
+
 ## Storage: Drizzle ORM + SQLite Durable Object
 
 `worker/storage-do.ts` is a SQLite Durable Object that accesses its database
