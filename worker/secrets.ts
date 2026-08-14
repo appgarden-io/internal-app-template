@@ -32,6 +32,15 @@ const HOME_ORIGIN = "https://home.appgarden.io";
 const TIMEOUT_MS = 5000;
 
 /**
+ * The vault's own naming rule, mirrored so an unusable name is refused BEFORE
+ * the key travels anywhere. This is not just a nicer error: `encodeURIComponent`
+ * leaves `.` alone and the URL parser normalises dot segments, so without this
+ * check `getSecret("..")` would send the key, as a live bearer, to a different
+ * path on the vault host. Same reasoning as `isUsableAsKey` in api-routes.ts.
+ */
+const SECRET_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
+
+/**
  * What a refusal means, in words the person reading the logs can act on. There
  * is deliberately no retry behind any of these: a 401 and a 404 both stay true
  * until a human does something, and retrying spends the App's request budget to
@@ -64,6 +73,11 @@ export const createSecretVault = (
       throw new Error(
         `Cannot read "${name}": this App has no APPGARDEN_SECRETS_KEY. Push to \`main\` to redeploy it, or add the key to \`.dev.vars\` for local dev.`,
       );
+    }
+    if (!SECRET_NAME_PATTERN.test(name)) {
+      // The vault would refuse this with the same 400; refusing it here keeps a
+      // dot-segment name from ever rewriting the request path (see the pattern).
+      throw new Error(refusalReason(400, name));
     }
 
     let response: Response;

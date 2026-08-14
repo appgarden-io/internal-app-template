@@ -68,6 +68,10 @@ const credentials = JSON.parse(await c.var.secrets.getSecret("google"));
   rotated secret would go stale until the App next restarted.
 - **Let the error surface.** `getSecret` throws with a message that says what to
   do; wrapping it in a vague 500 hides the fix from the person who can apply it.
+  Know where it surfaces, though: an uncaught throw reaches the **Worker logs**
+  (the `npm run dev` console locally, observability once deployed) — the HTTP
+  response itself is a generic 500. When debugging a failing integration, read
+  the logs, not the response body.
 
 ## When it fails
 
