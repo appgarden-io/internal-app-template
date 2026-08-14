@@ -59,12 +59,29 @@ export interface FileStore {
   delete(key: string): Promise<boolean>;
 }
 
+/**
+ * Tenant-secrets seam. Reads one of this Client's secrets — an API key or token
+ * a person on the team uploaded on the Tools page of their AppGarden home — so
+ * routes can call a third-party service (HubSpot, Google, Slack, …) without any
+ * credential living in this repo. The Worker injects the real adapter
+ * (`worker/secrets.ts`) as `c.var.secrets`.
+ *
+ * The value is a live credential: use it and drop it. Never log it, never store
+ * it in the Durable Object or R2, and never send it to the SPA — a route may
+ * return what the third party said, never the key it used to ask.
+ */
+export interface SecretVault {
+  /** Resolves to the secret's value; throws (with a legible reason) if it can't. */
+  getSecret(name: string): Promise<string>;
+}
+
 /** Hono environment for the routes: the seams the Worker injects per request. */
 export type ApiEnv = {
   Variables: {
     storage: AppStorage;
     ai: AiRunner;
     files: FileStore;
+    secrets: SecretVault;
     // This App's human-readable name (derived from its slug). Injected as a
     // plain string so the routes stay Worker-free — see `worker/index.ts`.
     appName: string;

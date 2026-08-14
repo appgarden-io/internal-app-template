@@ -21,4 +21,10 @@ export interface Env {
   // This App's slug (its repo name), set by the Deploy workflow via
   // `--var APP_SLUG:<repo>`; drives the App's display name (see slugToAppName).
   APP_SLUG: string;
+  // This Client's key for reading their uploaded secrets (see worker/secrets.ts).
+  // A Worker SECRET, stamped by the deploy gateway — deliberately NOT in
+  // `wrangler.jsonc`'s `vars`, which is committed. For `npm run dev`, put it in
+  // `.dev.vars` (gitignored); without one it is `undefined` at runtime, which is
+  // why `createSecretVault` tolerates a missing key instead of trusting this type.
+  APPGARDEN_SECRETS_KEY: string;
 }

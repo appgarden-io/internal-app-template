@@ -4,6 +4,7 @@ import { slugToAppName } from "../src/lib/app-name";
 import { createAiRunner } from "./ai-runner";
 import type { Env } from "./env";
 import { createFileStore } from "./file-store";
+import { createSecretVault } from "./secrets";
 import { StorageDurableObject } from "./storage-do";
 
 // The Cloudflare bindings type lives in `./env` so `storage-do.ts` can type
@@ -29,6 +30,7 @@ const api = new Hono<{ Bindings: Env } & ApiEnv>()
     c.set("storage", getStorage(c.env));
     c.set("ai", createAiRunner(c.env.AI));
     c.set("files", createFileStore(c.env.BUCKET));
+    c.set("secrets", createSecretVault(c.env.APPGARDEN_SECRETS_KEY));
     c.set("appName", slugToAppName(c.env.APP_SLUG));
     await next();
   })
